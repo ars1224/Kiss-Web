@@ -1,0 +1,725 @@
+.location {
+    --location-footer-height: 60px;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+body.app-shell .product-location-page {
+    height: calc(100dvh - var(--app-nav-height, 52px) - var(--location-footer-height)) !important;
+    min-height: 0 !important;
+}
+
+/* Search bar */
+.location .searchBar {
+    width: calc(100% - 20px);
+    margin: 16px 10px 0 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.searchBar form {
+    width: 30%;
+    display: flex;
+    flex-direction: column;
+}
+
+.searchBar form .position-relative {
+    width: 100%;
+    display: flex;
+    align-items: center;
+}
+
+.searchBar form input {
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+    margin-left: 0;
+    border-radius: 20px;
+}
+
+.searchBar > a {
+    flex: 0 0 auto;
+    width: 42px;
+    height: 42px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+}
+
+.searchBar i {
+    font-size: x-large;
+    cursor: pointer;
+    margin-right: 10px;
+    font-weight: 900;
+}
+
+.searchBar form i,
+#searchClearX i {
+    font-size: 12px;
+}
+
+.searchBar > a i {
+    margin: 0;
+}
+
+.searchBar i:hover {
+    color: rgb(82, 61, 61);
+}
+
+.mobile-select-all {
+    display: none !important;
+}
+
+/* Buttons */
+.buttons {
+    width: calc(100% - 20px);
+    margin: 14px 10px 10px 10px;
+    display: flex;
+    flex-direction: row-reverse;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.buttons .functionBtn {
+    display: flex;
+    flex-direction: row-reverse;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.functionBtn .functionBtn-1 {
+    display: none;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.buttons .functionBtn .btn,
+.csv button {
+    width: auto;
+    min-width: 130px;
+    height: 34px;
+    margin: 0;
+    padding: 6px 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    white-space: nowrap;
+}
+
+.functionBtn-1 .btn {
+    display: flex;
+    align-items: center;
+}
+
+.functionBtn-1 .btn i {
+    padding-left: 10px;
+}
+
+.csv {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.csv .btn,
+.csv div {
+    padding-left: 0;
+}
+
+.searchResultInfo {
+    width: calc(100% - 20px);
+    font-size: 15px;
+   display: flex;
+   justify-content: center;
+   margin-bottom: 10px;
+}
+
+/* Table */
+.table {
+    border: 1px solid #000;
+    height: 70vh;
+    width: calc(100% - 20px);
+    max-width: calc(100% - 20px);
+    margin: 0 10px 10px 10px;
+    background: #fff;
+
+    overflow-y: auto;
+    overflow-x: auto;
+}
+
+body.app-shell .product-location-data {
+    padding-bottom: calc(var(--location-footer-height) + 24px) !important;
+    scroll-padding-bottom: calc(var(--location-footer-height) + 24px);
+}
+
+.table table {
+    width: 100%;
+    min-width: 820px;
+    text-align: center;
+    border-collapse: separate;
+    border-spacing: 0;
+    
+}
+
+
+.table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: #fff;
+    box-shadow: inset 0 -1px #e5e7eb;
+}
+
+.table thead th,
+.table tbody td {
+    border-bottom: 1px solid #e5e7eb;
+}
+
+table thead tr th .btn {
+    height: min-content;
+    border: none;
+    color: #000;
+    font-weight: 700;
+    padding: 0;
+}
+
+thead tr th,
+tbody tr td {
+    width: 5vw;
+}
+
+/* Checkbox */
+tbody .selectCheckBox {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+table thead tr .select {
+    width: 5%;
+    padding: 4px 0;
+    
+}
+
+.footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: var(--location-footer-height, 60px);
+    min-height: var(--location-footer-height, 60px);
+    background: #e9e9e9;
+    border-top: 1px solid #d1d5db;
+    display: flex;
+    align-items: center;
+    z-index: 100
+}
+
+.footer .units {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 16px;
+    margin-left: 0;
+    font-weight: 700;
+}
+/* Row styles */
+tbody tr:hover {
+    background-color: rgb(204, 204, 204);
+}
+
+tbody tr.selected {
+    background-color: #dfe5ec;
+}
+
+tbody tr.hidden {
+    display: none;
+}
+
+tbody tr td .input-group-text {
+    background: none;
+    border: none;
+}
+
+tbody tr td .input-group-text .form-check-input {
+    border-color: rgb(27, 27, 27);
+}
+
+/* Sort */
+thead th.sorted-asc::after {
+    content: " ▲";
+    color: #74C0FC;
+    font-weight: bold;
+}
+
+thead th.sorted-desc::after {
+    content: " ▼";
+    color: #74C0FC;
+    font-weight: bold;
+}
+
+/* Bottom sheet */
+.editPallet {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: #fff;
+    border-top-left-radius: 16px;
+    border-top-right-radius: 16px;
+    box-shadow: 0 -12px 30px rgba(0, 0, 0, .25);
+    transform: translateY(100%);
+    transition: transform .28s ease;
+    z-index: 1001;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.editPallet.open {
+    transform: translateY(0);
+}
+
+.editPallet .sheetHeader {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.editPallet .sheetHandle {
+    width: 40px;
+    height: 5px;
+    border-radius: 999px;
+    background: #d1d5db;
+    margin-right: 8px;
+}
+
+.editPallet .sheetBody {
+    padding: 12px 16px;
+    overflow: auto;
+}
+
+.editPallet .sheetFooter {
+    padding: 12px 16px;
+    border-top: 1px solid #ababab;
+    display: flex;
+    justify-content: flex-end;
+    gap: 3px;
+}
+
+.editPallet input:read-only {
+    background-color: #d6d6d6;
+}
+
+/* Dialog */
+.moveDialog {
+    position: fixed;
+    inset: 0;
+    display: none;
+    place-items: center;
+    z-index: 1002;
+}
+
+.moveDialog.open {
+    display: grid;
+}
+
+.moveCard {
+    width: min(720px, 92vw);
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, .25);
+    display: flex;
+    flex-direction: column;
+    max-height: 80vh;
+}
+
+.moveHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.moveBody {
+    padding: 12px 16px;
+    overflow: auto;
+}
+
+.moveFooter {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 12px 16px;
+    border-top: 1px solid #bfbfbf;
+}
+
+#move_NewLocation:focus {
+    border-color: #1e90ff !important;
+}
+
+/* Misc */
+#searchClearX {
+    line-height: 1;
+}
+
+mark.hl {
+    background: #ffe58f;
+    padding: 0 .1em;
+    border-radius: 2px;
+}
+
+.product-table td.expired {
+    color: #d32f2f !important;
+}
+
+.product-table td.expiring {
+    color: #ff9800 !important;
+}
+
+/* Tablet */
+@media (max-width: 900px) {
+    .location {
+        padding-inline: 8px;
+    }
+
+    .searchBar form {
+    width: 100%;
+}
+
+    .location .searchBar,
+    .buttons,
+    .searchResultInfo,
+    .table {
+        width: 100%;
+        max-width: 100%;
+        margin-left: 0;
+        margin-right: 0;
+    }
+
+    .searchResultInfo{
+        font-size: 13px;
+    }
+
+    .buttons {
+        align-items: stretch;
+    }
+
+    .buttons .functionBtn,
+    .csv {
+        width: 100%;
+    }
+
+    .buttons .functionBtn .btn,
+    .csv button {
+        min-width: 120px;
+        flex: 1 1 140px;
+        font-size: 15px;
+    }
+
+    table thead tr th .btn {
+        font-size: 12px;
+}
+
+    .table table {
+        font-size: 12px;
+        min-width: 760px;
+    }
+
+    .footer .units {
+        margin-left: 10px;
+        font-size: 14px;
+    }
+
+        /* Card table layout only */
+    .table {
+        border: none;
+        background: transparent;
+        height: auto;
+        overflow: visible;
+        padding-bottom: 50px;
+    }
+
+    .table table,
+    .table thead,
+    .table tbody,
+    .table tr,
+    .table td {
+        display: block;
+        width: 100%;
+        min-width: 0;
+    }
+
+    .table thead {
+        display: none;
+    }
+
+    .table tbody tr {
+        position: relative;
+        background: #fff;
+        margin-bottom: 14px;
+        padding: 18px 22px 14px 74px;
+        border-radius: 16px;
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+    }
+
+    .table tbody td {
+        border: none;
+        padding: 0;
+        margin: 0;
+        text-align: left;
+    }
+
+    .table tbody td[data-label="Select"] {
+        position: absolute;
+        top: 24px;
+        left: 24px;
+        width: auto;
+    }
+
+    .table tbody td[data-label="Location"] {
+        font-size: 14px;
+        font-weight: 900;
+        margin-bottom: 6px;
+    }
+
+    .table tbody td[data-label="Location"]::before {
+        content: "Location: ";
+        color: #4b5563;
+    }
+
+    .table tbody td[data-label="SKU / Code"] {
+        font-size: 23px;
+        font-weight: 900;
+        line-height: 1;
+        margin-bottom: 12px;
+    }
+
+    .table tbody td[data-label="SKU / Code"]::before {
+        content: "SKU: ";
+    }
+
+    .table tbody td[data-label="Batch No."],
+    .table tbody td[data-label="Expiry Date"] {
+        display: inline-block;
+        width: 100%;
+        font-size: 17px;
+        font-weight: 700;
+        margin-bottom: 5px;
+        font-size: 14px;
+    }
+
+    .table tbody td[data-label="Batch No."] {
+        margin-right: 30px;
+    }
+
+    .table tbody td[data-label="Batch No."]::before {
+        content: "Batch: ";
+        color: #6b7280;
+    }
+
+    .table tbody td[data-label="Expiry Date"]::before {
+        content: "Expiry: ";
+        color: #6b7280;
+    }
+
+    .table tbody td[data-label="Comments"] {
+        position: absolute;
+        top: 24px;
+        right: 28px;
+        max-width: 32%;
+        text-align: center;
+        font-size: 15px;
+        font-weight: 500;
+        color: #b00000;
+    }
+
+    .table tbody td[data-label="Comments"]::before {
+        content: "Comments:";
+        display: block;
+        color: #4b5563;
+        margin-bottom: 8px;
+    }
+
+    .table tbody td[data-label="Unit Type"] {
+        display: none;
+    }
+
+    .table tbody td[data-label="Total Qty"],
+    .table tbody td[data-label="Qty / Ctn"] {
+        display: inline-flex;
+        align-items: center;
+        width: 40%;
+        height: 42px;
+        margin-top: 4px;
+        background: #fff;
+        font-size: 16px;
+        font-weight: 700;
+        margin-right:9% ;
+    }
+
+    .table tbody td[data-label="Total Qty"]::before {
+        content: "Total: ";
+        margin-right: 8px;
+    }
+
+    .table tbody td[data-label="Qty / Ctn"]::before {
+        content: "Qty/Ctn: ";
+        margin-right: 8px;
+    }
+}
+
+/* Phone */
+@media (max-width: 600px) {
+    .location .searchBar {
+        flex-direction: row;
+        gap: 8px;
+    }
+
+    .searchBar form {
+    width: 100%;
+    }
+
+    .searchBar > a {
+        width: 38px;
+        height: 38px;
+    }
+
+    .searchResultInfo{
+        font-size: 13px;
+    }
+
+    .buttons {
+        flex-direction: column-reverse;
+    }
+
+   .buttons .functionBtn,
+    .csv {
+        width: 100%;
+    }
+
+    .buttons .functionBtn > .btn,
+    .csv button {
+        width: 100%;
+        min-width: 0;
+        font-size: 15px;
+        padding: 7px 8px;
+    }
+
+    .functionBtn .functionBtn-1 {
+        grid-column: 1 / -1;
+        display: none;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+    }
+
+    .functionBtn .functionBtn-1 form,
+    .functionBtn .functionBtn-1 .btn {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .table table {
+        min-width: 570px;
+    }
+
+      table thead tr th .btn {
+        font-size: 9px;
+}
+
+    .table tbody tr {
+        padding: 16px 14px 14px 58px;
+    }
+
+    .table tbody td[data-label="Select"] {
+        left: 10px;
+        top: 22px;
+    }
+
+    .table tbody td[data-label="SKU / Code"] {
+        font-size: 19px;
+    }
+
+
+    .table tbody td[data-label="Location"],
+    .table tbody td[data-label="Batch No."],
+    .table tbody td[data-label="Expiry Date"] {
+        font-size: 13px;
+    }
+
+    .table tbody td[data-label="Comments"] {
+        position: static;
+        max-width: 100%;
+        text-align: left;
+        margin-top: 5px;
+    }
+
+    .table tbody td[data-label="Comments"]::before {
+        display: inline;
+        margin-right: 6px;
+    }
+
+    .table tbody td[data-label="Total Qty"],
+    .table tbody td[data-label="Qty / Ctn"] {
+        height: 50px;
+        font-size: 12px;
+        padding: 0 8px;
+    }
+}
+
+/* Small phone */
+@media (max-width: 430px) {
+    nav .pageName {
+        font-size: 16px !important;
+    }
+
+    .table table {
+        min-width: 220px;
+    }
+
+    .searchBar form {
+    width: 100%;
+    }
+
+    .searchResultInfo{
+        font-size: 10px;
+    }
+    .buttons .functionBtn,
+    .csv,
+    .functionBtn .functionBtn-1 {
+        grid-template-columns: 1fr;
+    }
+
+  .buttons .functionBtn,
+    .csv {
+        width: 100%;
+        font-size: 15px;
+    }
+
+    .editPallet {
+        max-height: 88vh;
+    }
+
+          table thead tr th .btn {
+        font-size: 10px;
+}
+}
+

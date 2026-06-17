@@ -1,0 +1,351 @@
+/* =========================
+   Transactions Page Styles
+   ========================= */
+
+/* Main wrapper (your template uses <main class="location">) */
+.location {
+  padding: 14px 14px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Headings */
+.location h4 {
+  font-weight: 800;
+  letter-spacing: .2px;
+}
+
+/* Cards */
+.location .card {
+  border-radius: 14px;
+  border: 1px solid #e7e7e7;
+  box-shadow: 0 10px 26px rgba(0,0,0,.06);
+}
+
+.location .card .card-body {
+  padding: 14px 14px;
+}
+
+/* Summary badges */
+.location .badge {
+  border-radius: 999px;
+  padding: 7px 10px;
+  font-weight: 700;
+  letter-spacing: .2px;
+}
+
+
+
+/* Filter form */
+.location .card form .form-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #4a4a4a;
+}
+
+.location .card form .form-control,
+.location .card form .form-select {
+  border-radius: 12px;
+  border: 1px solid #dedede;
+  padding: 10px 12px;
+  box-shadow: none !important;
+}
+
+.location .card form .form-control:focus,
+.location .card form .form-select:focus {
+  border-color: #1e90ff;
+}
+
+/* Buttons (more consistent sizing) */
+.location .btn {
+  border-radius: 12px;
+  font-weight: 700;
+}
+
+.location .btn-primary {
+  box-shadow: 0 10px 24px rgba(30,144,255,.20);
+}
+
+/* Table */
+.location .table-responsive {
+  border-radius: 14px;
+  overflow: auto;
+}
+
+.location table.table {
+  margin: 0;
+  min-width: 960px; /* keeps columns readable on desktop */
+}
+
+.location table.table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #f7f7f7;
+  border-bottom: 1px solid #e6e6e6 !important;
+  font-size: 12px;
+  font-weight: 800;
+  color: #333;
+  text-transform: uppercase;
+  letter-spacing: .4px;
+}
+
+.location table.table tbody td {
+  border-bottom: 1px solid #eeeeee !important;
+  vertical-align: middle;
+}
+
+.location table.table tbody tr:hover {
+  background: #f4f8ff;
+}
+
+/* Make key cells pop a bit */
+.location table.table td .fw-semibold {
+  font-weight: 800 !important;
+}
+
+/* Delta column readability */
+.location td.text-end.fw-semibold {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Details (expand/collapse) */
+.location details {
+  background: #fafafa;
+  border: 1px solid #ededed;
+  border-radius: 12px;
+  padding: 8px 10px;
+}
+
+.location details summary {
+  list-style: none;
+  font-weight: 800;
+  user-select: none;
+}
+
+.location details summary::-webkit-details-marker {
+  display: none;
+}
+
+.location details summary::after {
+  content: "▾";
+  float: right;
+  opacity: .65;
+}
+
+.location details[open] summary::after {
+  content: "▴";
+}
+
+.location details .text-muted {
+  color: #6b7280 !important;
+}
+
+/* Slightly nicer muted text */
+.location .text-muted {
+  color: #6b7280 !important;
+}
+
+thead tr th,
+tbody tr td {
+    width: 5vw;
+}
+
+
+.table {
+    border: 1px solid #000;
+    height: 48.5vh;
+    width: 100%;
+    margin: 0 10px 10px 0;
+    overflow: auto;
+    background: #fff;
+}
+
+
+/* Responsive tweaks */
+@media (max-width: 992px) {
+  .location {
+    padding: 10px;
+  }
+
+  .location .card .card-body {
+    padding: 12px;
+  }
+
+  /* Table scroll on smaller screens */
+  .location table.table {
+    min-width: 860px;
+  }
+}
+
+@media (max-width: 600px) {
+  .location table.table {
+    min-width: 820px;
+  }
+
+  .location .btn {
+    padding: 10px 12px;
+  }
+
+  .location .badge {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+}
+
+
+/* =====================================================
+   RESPONSIVE FINAL OVERRIDES - 2026
+   Transactions page
+   ===================================================== */
+.location {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.location .card,
+.location .table-responsive {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.location .table-responsive,
+.table {
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.location table.table {
+  width: 100%;
+  min-width: 980px;
+}
+
+.location table.table thead th,
+.location table.table tbody td {
+  white-space: nowrap;
+  width: auto;
+}
+
+.location details {
+  min-width: 240px;
+  white-space: normal;
+}
+
+.table {
+  width: 100%;
+  max-width: 100%;
+  margin: 0 0 10px 0;
+  height: auto;
+  max-height: 58dvh;
+}
+
+/* =========================================
+   TRANSACTIONS MOBILE CARD LAYOUT
+========================================= */
+
+/* =========================================
+   TRANSACTIONS MOBILE CARD LAYOUT
+========================================= */
+
+@media (max-width: 768px) {
+  .location {
+    padding: 8px;
+  }
+
+  .location .table-responsive,
+  .table {
+    border: none;
+    background: transparent;
+    height: auto;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .location table.table,
+  .location table.table thead,
+  .location table.table tbody,
+  .location table.table tr,
+  .location table.table td {
+    display: block;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .location table.table thead {
+    display: none;
+  }
+
+  .location table.table tbody tr {
+    position: relative;
+    background: #fff;
+    margin-bottom: 14px;
+    padding: 16px;
+    border-radius: 16px;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 4px 14px rgba(0,0,0,.08);
+  }
+
+  .location table.table tbody td {
+    border-bottom: none !important;
+    padding: 4px 0;
+    white-space: normal;
+    text-align: left !important;
+  }
+
+  .location table.table tbody td::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 11px;
+    font-weight: 800;
+    color: #6b7280;
+    margin-bottom: 2px;
+  }
+
+  .location table.table tbody td[data-label="SKU"] {
+    font-size: 26px;
+    font-weight: 900;
+    color: #111827;
+    margin: 6px 0 12px;
+  }
+
+  .location table.table tbody td[data-label="Time"] {
+    color: #6b7280;
+    font-size: 13px;
+  }
+
+  .location table.table tbody td[data-label="Action"] {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: auto;
+    text-align: right !important;
+  }
+
+  .location table.table tbody td[data-label="Location"],
+  .location table.table tbody td[data-label="Qty"] {
+    display: inline-block;
+    width: 48%;
+    vertical-align: top;
+  }
+
+  .location table.table tbody td[data-label="ΔQty"] {
+    margin-top: 12px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    background: #f3f4f6;
+    font-size: 22px;
+    font-weight: 900;
+  }
+
+  .location table.table tbody td[data-label="Details"] {
+    margin-top: 12px;
+  }
+
+  .location details {
+    min-width: 0;
+    width: 100%;
+  }
+}

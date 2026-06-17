@@ -1,0 +1,267 @@
+/* base.css - shared globals */
+
+@import url('https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
+
+/* Global reset + font */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Poppins', sans-serif;
+}
+
+/* Global scroll behaviour */
+html {
+    scroll-behavior: smooth;
+}
+
+/* Default body background (dashboard / main pages) */
+body {
+    min-height: 100vh;
+    background: #e4e4e4;
+}
+
+/* Main content wrapper (between nav and bottom) */
+.main-content {
+height: 80vh;
+}
+
+/* Shared full-screen overlay, used by sidebar + bottom sheets */
+.overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.53);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+    z-index: 900;
+}
+
+/* Active / show state (JS can toggle either class) */
+.overlay.active,
+.overlay.show {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+
+/* =====================================================
+   RESPONSIVE FINAL OVERRIDES - 2026
+   Keeps the same layout, but prevents overflow on screens
+   ===================================================== */
+html,
+body {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
+body {
+    min-height: 100dvh;
+}
+
+.main-content {
+    min-height: calc(100dvh - 14vh);
+    height: auto;
+    overflow-x: hidden;
+}
+
+img,
+svg,
+video,
+canvas {
+    max-width: 100%;
+}
+
+/*
+|--------------------------------------------------------------------------
+| NOTIFICATIONS
+|--------------------------------------------------------------------------
+*/
+
+.notification-wrapper {
+    position: relative;
+}
+
+.notif-btn {
+    position: relative;
+    border: none;
+    background: transparent;
+    color: #fff;
+    font-size: 20px;
+    cursor: pointer;
+}
+
+.notif-count {
+    position: absolute;
+    top: -8px;
+    right: -10px;
+
+    min-width: 18px;
+    height: 18px;
+
+    padding: 0 5px;
+
+    border-radius: 999px;
+
+    background: #dc3545;
+    color: #fff;
+
+    font-size: 11px;
+    font-weight: 800;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.notif-dropdown {
+    position: absolute;
+    top: 45px;
+    right: 0;
+
+    width: 360px;
+    max-height: 420px;
+
+    overflow-y: auto;
+
+    background: #fff;
+
+    border-radius: 14px;
+
+    padding: 14px;
+
+    box-shadow: 0 12px 30px rgba(0,0,0,.18);
+
+    display: none;
+
+    z-index: 9999;
+}
+
+.notif-dropdown.active {
+    display: block;
+}
+
+.notif-dropdown h4 {
+    margin-bottom: 14px;
+    color: #161a29;
+}
+
+.notif-item {
+    display: block;
+
+    text-decoration: none;
+
+    padding: 12px;
+
+    border-radius: 10px;
+
+    margin-bottom: 10px;
+
+    color: #222;
+
+    background: #f5f6fa;
+}
+
+.notif-item strong {
+    display: block;
+    margin-bottom: 4px;
+}
+
+.notif-item span {
+    font-size: 13px;
+}
+
+.notif-item.low-stock {
+    background: #fff3cd;
+    border-left: 4px solid #ffc107;
+}
+
+.notif-item.order {
+    background: #eaf3ff;
+    border-left: 4px solid #0d6efd;
+}
+
+.notif-item.waiting {
+    background: #fff0f0;
+    border-left: 4px solid #dc3545;
+}
+
+.notif-item.uploaded {
+    background: #edf9ed;
+    border-left: 4px solid #198754;
+}
+
+.notif-item.ongoing {
+    background: #eef3ff;
+    border-left: 4px solid #6610f2;
+}
+
+.notif-empty {
+    text-align: center;
+    padding: 20px;
+    color: #777;
+}
+
+.notif-item small {
+    display: block;
+    margin-top: 6px;
+    font-size: 11px;
+    color: #777;
+}
+
+.notif-toast {
+    position: fixed;
+    right: 24px;
+    bottom: 24px;
+    width: 320px;
+    background: #161a29;
+    color: #fff;
+    padding: 16px;
+    border-radius: 14px;
+    box-shadow: 0 12px 30px rgba(0,0,0,.25);
+    opacity: 0;
+    transform: translateY(20px);
+    transition: .3s ease;
+    z-index: 99999;
+}
+
+.notif-toast.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.notif-toast strong {
+    display: block;
+    margin-bottom: 6px;
+}
+
+.notif-toast span {
+    font-size: 13px;
+}
+
+.notif-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:12px;
+}
+
+.read-all-btn{
+    border:none;
+    background:none;
+    color:#1d4ed8;
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+}
+
+.read-all-btn:hover{
+    text-decoration:underline;
+}
+
+@media (max-width: 768px) {
+    .main-content {
+        min-height: calc(100dvh - 112px);
+    }
+}
