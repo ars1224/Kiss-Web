@@ -425,6 +425,8 @@ body.app-shell > .main-content {
 
     .orders-list-card {
         padding: 12px !important;
+        gap: 10px;
+        overflow: hidden;
     }
 
     .orders-list-top {
@@ -442,10 +444,13 @@ body.app-shell > .main-content {
 
     .orders-status-summary {
         display: flex;
+        flex: 0 0 auto;
         gap: 8px;
         overflow-x: auto;
+        overflow-y: visible;
         padding: 2px 0 8px;
-        margin-bottom: 10px;
+        margin-bottom: 0;
+        min-height: 84px;
         scroll-snap-type: x proximity;
         scrollbar-width: thin;
     }
@@ -464,14 +469,27 @@ body.app-shell > .main-content {
     }
 
     .status-count-card strong,
-    .status-not-sent span {
+    .status-not-sent strong {
         font-size: 21px;
     }
 
     .orders-filter-grid {
-        grid-template-columns: 1fr 1.4fr !important;
+        flex: 0 0 auto;
+        grid-template-columns: minmax(112px, 0.8fr) minmax(0, 1.2fr) !important;
         gap: 8px;
-        margin-bottom: 10px;
+        margin-bottom: 0;
+        max-width: none;
+    }
+
+    .orders-filter-grid .form-group {
+        min-width: 0;
+    }
+
+    .orders-filter-grid input,
+    .orders-filter-grid select {
+        width: 100%;
+        min-width: 0;
+        max-width: 100%;
     }
 
     .orders-filter-grid label {
@@ -479,6 +497,8 @@ body.app-shell > .main-content {
     }
 
     .orders-list-table-wrap {
+        flex: 1 1 auto;
+        min-height: 0;
         overflow-y: auto;
         overflow-x: hidden;
         padding: 2px;
@@ -1292,6 +1312,165 @@ body.app-shell > .main-content {
     .carton-label .carton-number {
         font-size: clamp(34px, 11vw, 72px);
     }
+
+    #ordersResultCount {
+        min-height: 26px;
+        padding: 4px 9px;
+        font-size: 12px;
+    }
+
+    .status-count-card {
+        border-radius: 12px;
+        border: 1px solid transparent;
+    }
+
+    .status-count-card.active {
+        border-color: #334155;
+        box-shadow: none;
+        transform: none;
+    }
+
+    .orders-list-table-wrap td[data-label="Invoice"] {
+        padding-right: 112px !important;
+        overflow-wrap: anywhere;
+    }
+
+    .orders-list-table-wrap td[data-label="Customer"],
+    .orders-list-table-wrap td[data-label="Order No"],
+    .orders-list-table-wrap td[data-label="Packed By"],
+    .orders-list-table-wrap td[data-label="Checked By"],
+    .orders-list-table-wrap td[data-label="Courier"] {
+        overflow-wrap: anywhere;
+    }
+
+    .orders-list-table-wrap td[data-label="Packed By"],
+    .orders-list-table-wrap td[data-label="Checked By"],
+    .orders-list-table-wrap td[data-label="Courier"] {
+        min-height: 46px;
+    }
+
+    .orders-list-table-wrap .btn-mini {
+        min-height: 40px;
+        padding: 8px;
+        font-size: 12px;
+    }
+
+    .order-view-page {
+        min-height: calc(100dvh - 60px);
+        padding: 10px !important;
+    }
+
+    .order-top-actions {
+        position: sticky;
+        top: 68px;
+        z-index: 20;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        padding: 8px;
+        border: 1px solid var(--mobile-border);
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.96);
+        box-shadow: 0 3px 12px rgba(15, 23, 42, 0.1);
+    }
+
+    .order-top-actions .btn {
+        min-height: 42px;
+        padding: 9px 10px;
+        font-size: 13px;
+    }
+
+    .order-summary-card,
+    .order-lines-card {
+        border-radius: 14px;
+        box-shadow: none;
+    }
+
+    .order-summary-card {
+        padding: 14px;
+    }
+
+    .order-summary-header {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 10px;
+        padding-bottom: 12px;
+        margin-bottom: 12px;
+    }
+
+    .order-summary-header h2 {
+        font-size: 22px;
+    }
+
+    .order-summary-header .status-badge {
+        justify-self: start;
+    }
+
+    .order-meta-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+    }
+
+    .order-meta-item,
+    .order-address-block {
+        padding: 9px 10px;
+        border-radius: 10px;
+    }
+
+    .order-lines-header {
+        padding: 12px 14px;
+    }
+
+    .order-lines-header h3 {
+        font-size: 18px;
+    }
+
+    #orderViewBody .order-items-table-wrap {
+        max-height: none;
+        min-height: 0;
+        margin-inline: -14px;
+        padding-inline: 14px;
+        overflow: visible;
+    }
+
+    #orderViewBody .order-items-table-wrap .orders-table {
+        min-width: 0;
+        width: 100%;
+        table-layout: fixed;
+    }
+
+    #orderViewBody .order-items-table-wrap .orders-table th,
+    #orderViewBody .order-items-table-wrap .orders-table td {
+        padding: 4px 3px;
+        font-size: 10px;
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+
+    #orderViewBody .order-items-table-wrap .pick-ctn-input {
+        width: 100%;
+        min-width: 0;
+        padding: 4px 3px;
+        font-size: 10px;
+    }
+
+    .order-items-table-wrap .orders-table thead th {
+        position: sticky;
+        top: 0;
+        z-index: 4;
+    }
+
+    .order-items-table-wrap .orders-table th:first-child,
+    .order-items-table-wrap .orders-table td:first-child {
+        position: static;
+        left: 0;
+        z-index: 3;
+        min-width: 86px;
+        background: #fff;
+    }
+
+    .order-items-table-wrap .orders-table th:first-child {
+        z-index: 5;
+        background: #f5f7fb;
+    }
 }
 
 @media screen and (max-width: 430px) {
@@ -1309,6 +1488,19 @@ body.app-shell > .main-content {
 
     .orders-filter-grid {
         grid-template-columns: 1fr !important;
+        width: 100%;
+    }
+
+    .orders-filter-grid .form-group {
+        width: 100%;
+    }
+
+    .order-meta-grid {
+        grid-template-columns: 1fr !important;
+    }
+
+    .order-items-table-wrap {
+        max-height: none;
     }
 
     .orders-report-filters {

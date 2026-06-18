@@ -1,7 +1,7 @@
-<div class="page-content orders-page">
+<div class="page-content orders-page order-view-page">
 
     <div class="orders-actions no-print order-top-actions">
-        <a href="orders_list.php" class="btn btn-secondary">Back</a>
+        <a href="orders_list.php" class="btn btn-secondary">Back to Orders</a>
 
         <button type="button" class="btn btn-primary" id="startPickingBtn">
             Start Picking

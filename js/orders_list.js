@@ -8,14 +8,24 @@ document.addEventListener('DOMContentLoaded', () => {
     startOrdersAutoRefresh();
 
     document.getElementById('statusFilter').addEventListener('change', () => {
-    updateOrdersUrl();
-    renderFilteredOrders();
-});
+        updateOrdersUrl();
+        renderFilteredOrders();
+    });
 
-document.getElementById('searchOrder').addEventListener('input', () => {
-    updateOrdersUrl();
-    renderFilteredOrders();
-})
+    document.getElementById('searchOrder').addEventListener('input', () => {
+        updateOrdersUrl();
+        renderFilteredOrders();
+    });
+
+    document.querySelectorAll('[data-status-filter]').forEach(button => {
+        button.addEventListener('click', () => {
+            const status = button.dataset.statusFilter || '';
+            const statusFilter = document.getElementById('statusFilter');
+            statusFilter.value = statusFilter.value === status ? '' : status;
+            updateOrdersUrl();
+            renderFilteredOrders();
+        });
+    });
 });
 
 const urlParams = new URLSearchParams(window.location.search);
@@ -94,6 +104,8 @@ function renderFilteredOrders() {
         );
     }
 
+    updateResultSummary(filtered.length);
+    updateActiveStatusCard(status);
     renderOrders(filtered);
 }
 
@@ -109,37 +121,46 @@ function renderOrders(orders) {
         return;
     }
 
-    body.innerHTML = orders.map(order => `
-        <tr>
+    body.innerHTML = orders.map(order => {
+        const status = order.status || 'pending';
+
+        return `
+        <tr class="order-row order-row-${escapeHtml(status)}">
             <td data-label="Invoice">
                 <a class="order-link" href="order_view.php?id=${order.id}">
-                    <strong>${escapeHtml(order.invoice_no || '')}</strong>
+                    <strong>${formatEmpty(order.invoice_no)}</strong>
                 </a>
             </td>
-            <td data-label="Date">${escapeHtml(order.order_date || '')}</td>
+            <td data-label="Date">${formatEmpty(order.order_date)}</td>
             <td data-label="Customer">
                 <a class="order-link" href="order_view.php?id=${order.id}">
-                    ${escapeHtml(order.customer_name || '')}
+                    ${formatEmpty(order.customer_name)}
                 </a>
             </td>
-            <td data-label="Order No">${escapeHtml(order.order_number || '')}</td>
+            <td data-label="Order No">${formatEmpty(order.order_number)}</td>
             <td data-label="Status">
-                <span class="status-badge status-${escapeHtml(order.status || 'pending')}">
-                    ${formatStatus(order.status || 'pending')}
+                <span class="status-badge status-${escapeHtml(status)}">
+                    ${escapeHtml(formatStatus(status))}
                 </span>
             </td>
 
-            <td data-label="Packed By">${escapeHtml(order.picker_name || '')}</td>
+            <td data-label="Packed By">${formatEmpty(order.picker_name)}</td>
 
-            <td data-label="Checked By">${escapeHtml(order.checker_name || '')}</td>
+            <td data-label="Checked By">${formatEmpty(order.checker_name)}</td>
 
-            <td data-label="Courier">${escapeHtml(order.courier_name || '')}</td>
+            <td data-label="Courier">${formatEmpty(order.courier_name)}</td>
             <td data-label="Actions">
     <div class="action-group-row">
 
-        ${['pending', 'ongoing'].includes(order.status || 'pending')
+        <a class="btn-mini btn-view"
+           href="order_view.php?id=${order.id}"
+           aria-label="View order ${escapeHtml(order.invoice_no || order.id)}">
+            View
+        </a>
+
+        ${['pending', 'ongoing'].includes(status)
             ? `
-                <button class="btn-mini btn-edit"
+                <button type="button" class="btn-mini btn-edit"
                     onclick="editOrder(${order.id})">
                     Edit
                 </button>
@@ -147,9 +168,9 @@ function renderOrders(orders) {
             : ''
         }
 
-        ${!['booking', 'waiting_packing_slip', 'sent'].includes(order.status || 'pending')
+        ${!['booking', 'waiting_packing_slip', 'sent'].includes(status)
             ? `
-                <button class="btn-mini btn-delete"
+                <button type="button" class="btn-mini btn-delete"
                     onclick="deleteOrder(${order.id})">
                     Delete
                 </button>
@@ -157,9 +178,9 @@ function renderOrders(orders) {
             : ''
         }
 
-        ${!['sent', 'not_sent'].includes(order.status || '')
+        ${!['sent', 'not_sent'].includes(status)
             ? `
-                <button class="btn-mini btn-print"
+                <button type="button" class="btn-mini btn-print"
                     onclick="printCartonLabels(${order.id})">
                     Print Labels
                 </button>
@@ -187,7 +208,8 @@ function renderOrders(orders) {
     </div>
 </td>
         </tr>
-    `).join('');
+    `;
+    }).join('');
 }
 
 async function quickStatus(id, status) {
@@ -271,6 +293,42 @@ function escapeHtml(value) {
         .replaceAll("'", '&#039;');
 }
 
+function formatEmpty(value) {
+    const text = String(value ?? '').trim();
+    return text ? escapeHtml(text) : '<span class="muted-dash">-</span>';
+}
+
+function updateResultSummary(count) {
+    const resultCount = document.getElementById('ordersResultCount');
+    if (!resultCount) return;
+
+    const total = allOrders.length;
+    const status = document.getElementById('statusFilter').value;
+    const search = document.getElementById('searchOrder').value.trim();
+
+    if (!total) {
+        resultCount.textContent = 'No orders loaded yet.';
+        return;
+    }
+
+    const filteredText = count === total
+        ? `${total} ${total === 1 ? 'order' : 'orders'}`
+        : `${count} of ${total} orders`;
+
+    const context = [
+        status ? formatStatus(status) : '',
+        search ? `matching "${search}"` : ''
+    ].filter(Boolean).join(' ');
+
+    resultCount.textContent = context ? `${filteredText} ${context}` : filteredText;
+}
+
+function updateActiveStatusCard(status) {
+    document.querySelectorAll('[data-status-filter]').forEach(button => {
+        button.classList.toggle('active', button.dataset.statusFilter === status);
+    });
+}
+
 function updateStatusCounts() {
     const pending = allOrders.filter(o => (o.status || 'pending') === 'pending').length;
     const ongoing = allOrders.filter(o => (o.status || 'pending') === 'ongoing').length;
@@ -285,6 +343,7 @@ function updateStatusCounts() {
     document.getElementById('countWaiting').textContent = waiting;
     document.getElementById('countSent').textContent = sent;
     document.getElementById('countNotSent').textContent = notSent;
+    updateActiveStatusCard(document.getElementById('statusFilter').value);
 }
 
 async function printCartonLabels(id) {

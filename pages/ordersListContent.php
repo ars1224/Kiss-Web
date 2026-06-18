@@ -1,8 +1,8 @@
 <div class="page-content orders-page orders-list-page">
     <div class="orders-header">
         <div>
-            <h1>Orders List</h1>
-            <p>View all orders and update their status.</p>
+            <h1>Orders</h1>
+            <p>Monitor picking, checking, courier booking, and sent orders.</p>
         </div>
     </div>
 
@@ -10,45 +10,45 @@
         <div class="orders-list-top">
             <div>
                 <h2>All Orders</h2>
-                <p>Track pending, ongoing, waiting for packing slip, and sent orders.</p>
+                <p id="ordersResultCount">Loading orders...</p>
             </div>
 
             <div class="orders-actions">
-                <a href="ordersReport.php" class="view-report-btn btn btn-primary">View Report</a>
+                <a href="ordersReport.php" class="view-report-btn btn btn-secondary">View Report</a>
                 <a href="orders.php" class="btn btn-primary">Create Order</a>
             </div>
         </div>
 
-        <div class="orders-status-summary">
-        <div class="status-count-card pending">
+        <div class="orders-status-summary" aria-label="Order status summary">
+        <button type="button" class="status-count-card pending" data-status-filter="pending">
             <span>Pending</span>
             <strong id="countPending">0</strong>
-        </div>
+        </button>
 
-        <div class="status-count-card ongoing">
+        <button type="button" class="status-count-card ongoing" data-status-filter="ongoing">
             <span>Ongoing</span>
             <strong id="countOngoing">0</strong>
-        </div>
+        </button>
 
-         <div class="status-count-card booking">
+         <button type="button" class="status-count-card booking" data-status-filter="booking">
             <span>Booking</span>
             <strong id="countBooking">0</strong>
-        </div>
+        </button>
 
-        <div class="status-count-card waiting">
+        <button type="button" class="status-count-card waiting" data-status-filter="waiting_packing_slip">
             <span>Waiting Slip</span>
             <strong id="countWaiting">0</strong>
-        </div>
+        </button>
 
-        <div class="status-count-card sent">
+        <button type="button" class="status-count-card sent" data-status-filter="sent">
             <span>Sent</span>
             <strong id="countSent">0</strong>
-        </div>
+        </button>
 
-        <div class="status-count-card status-not-sent ">
-            <h4>Not Sent</h4>
-            <span id="countNotSent">0</span>
-        </div>
+        <button type="button" class="status-count-card status-not-sent" data-status-filter="not_sent">
+            <span>Not Sent</span>
+            <strong id="countNotSent">0</strong>
+        </button>
     </div>
 
         <div class="orders-filter-grid">

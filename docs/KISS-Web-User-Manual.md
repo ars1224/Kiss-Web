@@ -96,6 +96,63 @@ Product labels and carton labels are generated as PDFs with TCPDF and sent to:
 
 Label printing will not work silently unless that script exists and is correctly configured on the Windows machine.
 
+#### How the Silent Printing Process Works
+
+KISS-Web does not send label text directly to the printer. It first creates a PDF label file, then asks Windows to print that PDF.
+
+1. The user clicks a print action, or the Add Pallet save process triggers printing after stock is saved.
+2. PHP loads the selected inventory rows or order carton rows from the database.
+3. TCPDF builds the product label or carton label PDF in memory.
+4. PHP saves the PDF temporarily in the Windows temp folder.
+5. PHP runs `C:\print\print_pdf.cmd` and passes the temporary PDF path as the first command-line argument.
+6. The batch file sends the PDF to the correct label printer, usually by calling an installed PDF reader or command-line print tool.
+7. After the command runs, KISS-Web deletes the temporary PDF.
+8. The browser receives a response such as `Printed` or an error message.
+
+Because the batch file is outside the PHP application, it must be created, configured, and tested on the Windows machine that runs printing.
+
+Example `C:\print\print_pdf.cmd`:
+
+```bat
+@echo off
+set "PDF=%~1"
+
+if "%PDF%"=="" exit /b 1
+if not exist "%PDF%" exit /b 2
+
+REM Replace this command with the installed PDF print tool or reader command.
+REM Example only:
+"C:\Program Files\SumatraPDF\SumatraPDF.exe" -print-to-default -silent "%PDF%"
+
+exit /b %ERRORLEVEL%
+```
+
+For a named label printer, the command may need to use the printer name instead of the default printer. The exact command depends on the installed PDF tool. For example, some PDF tools support a command similar to:
+
+```bat
+"C:\Program Files\SumatraPDF\SumatraPDF.exe" -print-to "Label Printer Name" -silent "%PDF%"
+```
+
+Printer setup checklist:
+
+- [ ] `C:\print` exists.
+- [ ] `C:\print\print_pdf.cmd` exists.
+- [ ] The batch file reads the PDF path from `%~1`.
+- [ ] The PDF print tool path in the batch file is correct.
+- [ ] The label printer is installed in Windows.
+- [ ] The label printer is either the default printer or is named correctly in the script.
+- [ ] The Windows user running Apache/PHP has permission to run the script and access the printer.
+- [ ] A test PDF prints from Command Prompt with `C:\print\print_pdf.cmd C:\path\to\test.pdf`.
+
+Common silent printing issues:
+
+| Problem | Meaning | Fix |
+| --- | --- | --- |
+| Nothing prints and no browser error is obvious | The batch file may be missing, blocked, or pointing to the wrong PDF tool | Confirm `C:\print\print_pdf.cmd` exists and run it manually with a test PDF |
+| Browser shows a print error | PHP ran the batch file and received an error response | Check the batch file command, printer name, and PDF tool path |
+| Prints to the wrong printer | The script uses the Windows default printer or the wrong printer name | Set the correct default printer or update the script to use the label printer name |
+| Labels print but are misaligned | Printer driver, label size, scaling, or PDF tool settings differ from the label stock | Check printer label size, disable scaling where possible, and adjust TCPDF offsets only if needed |
+
 ## Login and Account Guide
 
 [Insert Screenshot: Login Page]

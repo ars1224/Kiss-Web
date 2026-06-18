@@ -339,6 +339,7 @@ async function uploadPackingSlip() {
 
 function renderOrder(order, items) {
     const isPicking = order.status === 'ongoing';
+    const status = order.status || 'pending';
 
     document.getElementById('startPickingBtn').style.display =
         order.status === 'pending' ? 'inline-block' : 'none';
@@ -363,8 +364,42 @@ function renderOrder(order, items) {
         order.status === 'waiting_packing_slip' ? 'block' : 'none';
 
     document.getElementById('orderViewBody').innerHTML = `
-        <div class="print-area">
-            <div class="order-print-header">
+        <div class="print-area order-view-shell">
+            <section class="order-summary-card">
+                <div class="order-summary-header">
+                    <div>
+                        <span class="order-summary-kicker">Picking List</span>
+                        <h2>Invoice ${formatEmpty(order.invoice_no)}</h2>
+                        <p>${formatEmpty(order.customer_name)}${order.customer_code ? ` - ${escapeHtml(order.customer_code)}` : ''}</p>
+                    </div>
+                    <span class="status-badge status-${escapeHtml(status)}">${escapeHtml(formatStatus(status))}</span>
+                </div>
+
+                <div class="order-meta-grid">
+                    ${renderMetaItem('Order No', order.order_number)}
+                    ${renderMetaItem('Order Date', order.order_date)}
+                    ${renderMetaItem('Delivery Date', order.completed_at ? formatDateTime(order.completed_at) : order.delivery_date)}
+                    ${renderMetaItem('Sales Person', order.sales_person)}
+                    ${renderMetaItem('Packed By', order.picker_name)}
+                    ${renderMetaItem('Checked By', order.checker_name)}
+                    ${renderMetaItem('Checked At', order.checked_at ? formatDateTime(order.checked_at) : '')}
+                    ${renderMetaItem('Courier', order.courier_name)}
+                    ${renderMetaItem('Courier Ref', order.courier_reference)}
+                    ${order.packing_slip_file ? `
+                        <div class="order-meta-item">
+                            <span>Packing Slip</span>
+                            <strong><a href="${escapeHtml(order.packing_slip_file)}" target="_blank">View File</a></strong>
+                        </div>
+                    ` : ''}
+                </div>
+
+                <div class="order-address-block">
+                    <span>Delivery Address</span>
+                    <strong>${formatEmpty(order.customer_address)}</strong>
+                </div>
+            </section>
+
+            <div class="order-print-header print-only-summary">
                 <div>
                     <h2>Picking List</h2>
                     <p><strong>Invoice:</strong> ${escapeHtml(order.invoice_no || '')}</p>
@@ -378,7 +413,7 @@ function renderOrder(order, items) {
                 </div>
             </div>
 
-            <div class="order-customer-box">
+            <div class="order-customer-box print-only-block">
                 <p><strong>Customer:</strong> ${escapeHtml(order.customer_name || '')}</p>
                 <p><strong>Address:</strong> ${escapeHtml(order.customer_address || '')}</p>
                 <p><strong>Customer Code:</strong> ${escapeHtml(order.customer_code || '')}</p>
@@ -393,7 +428,15 @@ function renderOrder(order, items) {
                 ${order.packing_slip_file ? `<p><strong>Packing Slip:</strong> <a href="${escapeHtml(order.packing_slip_file)}" target="_blank">View File</a></p>` : ''}
             </div>
 
-            <div class="table-wrap">
+            <section class="order-lines-card">
+                <div class="order-lines-header">
+                    <div>
+                        <h3>Items</h3>
+                        <p>${items.length} ${items.length === 1 ? 'line' : 'lines'}</p>
+                    </div>
+                </div>
+
+            <div class="table-wrap order-items-table-wrap">
                 <table class="orders-table preview-table">
                     <thead>
                         <tr>
@@ -419,13 +462,15 @@ function renderOrder(order, items) {
                     <tbody>${renderItems(items, isPicking)}</tbody>
                 </table>
             </div>
+            </section>
         </div>
     `;
 }
 
 function renderItems(items, isPicking) {
     if (!items.length) {
-        return `<tr class="empty-row"><td colspan="13">No items found.</td></tr>`;
+        const canPrintColumn = ['pending', 'ongoing', 'booking', 'waiting_packing_slip'].includes(currentOrder.status || '');
+        return `<tr class="empty-row"><td colspan="${canPrintColumn ? 14 : 13}">No items found.</td></tr>`;
     }
 
     let html = '';
@@ -782,9 +827,9 @@ function formatStatus(status) {
         case 'pending': return 'Pending';
         case 'ongoing': return 'Ongoing';
         case 'booking': return 'Booking';
-        case 'waiting_packing_slip': return 'Waiting Packing Slip';
+        case 'waiting_packing_slip': return 'Waiting Slip';
         case 'sent': return 'Sent';
-        case 'not sent': return 'Not Sent';
+        case 'not_sent': return 'Not Sent';
         default: return status;
     }
 }
@@ -797,6 +842,21 @@ function escapeHtml(value) {
         .replaceAll('"', '&quot;')
         .replaceAll("'", '&#039;');
 }
+
+function formatEmpty(value) {
+    const text = String(value ?? '').trim();
+    return text ? escapeHtml(text) : '<span class="muted-dash">-</span>';
+}
+
+function renderMetaItem(label, value) {
+    return `
+        <div class="order-meta-item">
+            <span>${escapeHtml(label)}</span>
+            <strong>${formatEmpty(value)}</strong>
+        </div>
+    `;
+}
+
 function shouldMergeCtnNo(fullCtnValue) {
     const value = String(fullCtnValue || '').trim();
 
