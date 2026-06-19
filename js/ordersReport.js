@@ -134,17 +134,77 @@ function escapeHtml(value) {
         .replaceAll("'", '&#039;');
 }
 
-function exportOrdersReportPdf() {
+async function exportOrdersReportPdf() {
     const fromDate = document.getElementById('reportFromDate').value;
     const toDate = document.getElementById('reportToDate').value;
+    const exportPdfBtn = document.getElementById('exportOrdersReportPdfBtn');
 
     if (!fromDate || !toDate) {
         alert('Please select from date and to date first.');
         return;
     }
 
-    window.open(
-        `php/functions/orders_report_pdf.php?from_date=${encodeURIComponent(fromDate)}&to_date=${encodeURIComponent(toDate)}`,
-        '_blank'
-    );
+    const url = `php/functions/orders_report_pdf.php?from_date=${encodeURIComponent(fromDate)}&to_date=${encodeURIComponent(toDate)}`;
+    const filename = `orders-report-${fromDate}-to-${toDate}.pdf`;
+
+    if (exportPdfBtn) {
+        exportPdfBtn.disabled = true;
+        exportPdfBtn.textContent = 'Preparing PDF...';
+    }
+
+    try {
+        await downloadGeneratedFile(url, filename);
+    } catch (error) {
+        console.error(error);
+        alert(error.message || 'PDF download failed.');
+    } finally {
+        if (exportPdfBtn) {
+            exportPdfBtn.disabled = false;
+            exportPdfBtn.textContent = 'Download PDF';
+        }
+    }
+}
+
+async function downloadGeneratedFile(url, fallbackFilename) {
+    const response = await fetch(url, { cache: 'no-store' });
+
+    if (!response.ok) {
+        const message = await response.text();
+        throw new Error(message || 'Download failed.');
+    }
+
+    const blob = await response.blob();
+    const filename = getDownloadFilename(response, fallbackFilename);
+    saveBlob(blob, filename);
+}
+
+function getDownloadFilename(response, fallbackFilename) {
+    const disposition = response.headers.get('Content-Disposition') || '';
+    const filenameMatch = disposition.match(/filename\*=UTF-8''([^;]+)|filename="?([^";]+)"?/i);
+    const filename = filenameMatch ? (filenameMatch[1] || filenameMatch[2]) : '';
+
+    if (!filename) {
+        return fallbackFilename;
+    }
+
+    try {
+        return decodeURIComponent(filename);
+    } catch (error) {
+        return filename;
+    }
+}
+
+function saveBlob(blob, filename) {
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+
+    link.href = objectUrl;
+    link.download = filename;
+    link.style.display = 'none';
+
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
 }

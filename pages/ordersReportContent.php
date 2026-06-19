@@ -1,15 +1,16 @@
 <div class="page-content orders-report-page">
-    <div class="orders-header">
+    <div class="orders-report-hero">
         <div>
+            <span>Orders</span>
             <h1>Orders Report</h1>
-            <p>View sent orders, not supplied products, and orders still not sent by date.</p>
+            <p>Review sent orders, short supply, and orders still waiting to be sent.</p>
         </div>
 
         <a href="orders_list.php" class="back-orders-btn">Back to Orders</a>
     </div>
 
     <div class="card orders-report-card-wrap">
-        <div class="orders-report-filters">
+        <div class="orders-report-toolbar">
             <div class="form-group">
                 <label for="reportFromDate">From Date</label>
                 <input type="date" id="reportFromDate">
@@ -20,12 +21,12 @@
                 <input type="date" id="reportToDate">
             </div>
 
-            <button type="button" id="generateOrdersReportBtn">
+            <button type="button" id="generateOrdersReportBtn" class="orders-report-btn report-generate-btn">
                 Generate Report
             </button>
 
-            <button type="button" id="exportOrdersReportPdfBtn">
-                Export PDF
+            <button type="button" id="exportOrdersReportPdfBtn" class="orders-report-btn report-pdf-btn">
+                Download PDF
             </button>
         </div>
 
@@ -63,7 +64,12 @@
     </div>
 
     <div class="card orders-report-table-card">
-        <h2>Products Not Supplied</h2>
+        <div class="orders-report-section-heading">
+            <div>
+                <h2>Products Not Supplied</h2>
+                <p>Sent order lines where supplied quantity is lower than ordered.</p>
+            </div>
+        </div>
 
         <div class="table-wrap">
             <table class="orders-report-table">
@@ -91,7 +97,12 @@
     </div>
 
     <div class="card orders-report-table-card">
-        <h2>Orders Still Not Sent</h2>
+        <div class="orders-report-section-heading">
+            <div>
+                <h2>Orders Still Not Sent</h2>
+                <p>Orders that still need picking, booking, packing slip upload, or follow-up.</p>
+            </div>
+        </div>
 
         <div class="table-wrap">
             <table class="orders-report-table">

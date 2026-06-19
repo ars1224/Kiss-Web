@@ -15,6 +15,24 @@ try {
         throw new Exception('Please select from date and to date.');
     }
 
+    $orderedQtyValue = "TRIM(COALESCE(NULLIF(oi.total_qty, ''), NULLIF(oi.order_qty, ''), ''))";
+    $suppliedQtyValue = "TRIM(COALESCE(NULLIF(oi.total_qty_supplied, ''), NULLIF(oi.qty_supplied, ''), ''))";
+    $orderedQtyExpr = "
+        CASE
+            WHEN {$orderedQtyValue} REGEXP '^[0-9]+([.][0-9]+)?$'
+            THEN CAST({$orderedQtyValue} AS DECIMAL(12,4))
+            ELSE 0
+        END
+    ";
+    $suppliedQtyExpr = "
+        CASE
+            WHEN UPPER({$suppliedQtyValue}) = 'NO STOCK' THEN 0
+            WHEN {$suppliedQtyValue} REGEXP '^[0-9]+([.][0-9]+)?$'
+            THEN CAST({$suppliedQtyValue} AS DECIMAL(12,4))
+            ELSE 0
+        END
+    ";
+
     $summarySql = "
         SELECT
             COUNT(*) AS total_orders,
@@ -33,31 +51,21 @@ try {
 
     $qtySql = "
         SELECT
-            COALESCE(SUM(oi.order_qty), 0) AS total_qty_ordered,
-
-            COALESCE(SUM(
-                CASE
-                    WHEN UPPER(TRIM(oi.qty_supplied)) = 'NO STOCK' THEN 0
-                    WHEN oi.qty_supplied REGEXP '^[0-9]+$' THEN CAST(oi.qty_supplied AS UNSIGNED)
-                    ELSE 0
-                END
-            ), 0) AS total_qty_supplied,
-
-            COALESCE(SUM(
-                GREATEST(
-                    oi.order_qty -
-                    CASE
-                        WHEN UPPER(TRIM(oi.qty_supplied)) = 'NO STOCK' THEN 0
-                        WHEN oi.qty_supplied REGEXP '^[0-9]+$' THEN CAST(oi.qty_supplied AS UNSIGNED)
-                        ELSE 0
-                    END,
-                    0
-                )
-            ), 0) AS total_qty_not_supplied
-
-        FROM order_items oi
-        INNER JOIN orders o ON oi.order_id = o.id
-        WHERE DATE(o.completed_at) BETWEEN :from_date AND :to_date
+            COALESCE(SUM(grouped.qty_ordered), 0) AS total_qty_ordered,
+            COALESCE(SUM(grouped.qty_supplied), 0) AS total_qty_supplied,
+            COALESCE(SUM(GREATEST(grouped.qty_ordered - grouped.qty_supplied, 0)), 0) AS total_qty_not_supplied
+        FROM (
+            SELECT
+                o.id AS order_id,
+                oi.sku_code,
+                oi.description,
+                MAX({$orderedQtyExpr}) AS qty_ordered,
+                SUM({$suppliedQtyExpr}) AS qty_supplied
+            FROM order_items oi
+            INNER JOIN orders o ON oi.order_id = o.id
+            WHERE DATE(o.completed_at) BETWEEN :from_date AND :to_date
+            GROUP BY o.id, oi.sku_code, oi.description
+        ) grouped
     ";
 
     $qtyStmt = $pdo->prepare($qtySql);
@@ -69,48 +77,39 @@ try {
 
     $notSuppliedSql = "
     SELECT
-        o.invoice_no,
-        o.completed_at,
-        o.customer_name,
-        oi.sku_code,
-        oi.description,
-
-        oi.order_qty AS qty_ordered,
-
+        grouped.invoice_no,
+        grouped.completed_at,
+        grouped.customer_name,
+        grouped.sku_code,
+        grouped.description,
+        grouped.qty_ordered,
+        grouped.qty_supplied,
+        GREATEST(grouped.qty_ordered - grouped.qty_supplied, 0) AS qty_not_supplied,
         CASE
-            WHEN UPPER(TRIM(oi.qty_supplied)) = 'NO STOCK' THEN 0
-            WHEN oi.qty_supplied REGEXP '^[0-9]+$' THEN CAST(oi.qty_supplied AS UNSIGNED)
-            ELSE 0
-        END AS qty_supplied,
-
-        GREATEST(
-            oi.order_qty -
-            CASE
-                WHEN UPPER(TRIM(oi.qty_supplied)) = 'NO STOCK' THEN 0
-                WHEN oi.qty_supplied REGEXP '^[0-9]+$' THEN CAST(oi.qty_supplied AS UNSIGNED)
-                ELSE 0
-            END,
-            0
-        ) AS qty_not_supplied,
-
-        CASE
-            WHEN UPPER(TRIM(oi.qty_supplied)) = 'NO STOCK' THEN 'NO STOCK'
-            WHEN oi.not_supplied_reason IS NOT NULL AND oi.not_supplied_reason != '' THEN oi.not_supplied_reason
+            WHEN grouped.qty_supplied <= 0 THEN 'NO STOCK'
+            WHEN grouped.not_supplied_reasons IS NOT NULL AND grouped.not_supplied_reasons != '' THEN grouped.not_supplied_reasons
             ELSE 'SHORT SUPPLY'
         END AS not_supplied_reason
-
-    FROM order_items oi
-    INNER JOIN orders o ON oi.order_id = o.id
-    WHERE DATE(o.completed_at) BETWEEN :from_date AND :to_date
-    AND o.completed_at IS NOT NULL
-    AND LOWER(o.status) = 'sent'
-    AND oi.order_qty >
-        CASE
-            WHEN UPPER(TRIM(oi.qty_supplied)) = 'NO STOCK' THEN 0
-            WHEN oi.qty_supplied REGEXP '^[0-9]+$' THEN CAST(oi.qty_supplied AS UNSIGNED)
-            ELSE 0
-        END
-    ORDER BY o.completed_at DESC, o.invoice_no ASC, oi.sku_code ASC
+    FROM (
+        SELECT
+            o.id AS order_id,
+            o.invoice_no,
+            o.completed_at,
+            o.customer_name,
+            oi.sku_code,
+            oi.description,
+            MAX({$orderedQtyExpr}) AS qty_ordered,
+            SUM({$suppliedQtyExpr}) AS qty_supplied,
+            NULLIF(GROUP_CONCAT(DISTINCT NULLIF(TRIM(COALESCE(oi.not_supplied_reason, '')), '') SEPARATOR ', '), '') AS not_supplied_reasons
+        FROM order_items oi
+        INNER JOIN orders o ON oi.order_id = o.id
+        WHERE DATE(o.completed_at) BETWEEN :from_date AND :to_date
+        AND o.completed_at IS NOT NULL
+        AND LOWER(o.status) = 'sent'
+        GROUP BY o.id, o.invoice_no, o.completed_at, o.customer_name, oi.sku_code, oi.description
+    ) grouped
+    WHERE grouped.qty_ordered > grouped.qty_supplied
+    ORDER BY grouped.completed_at DESC, grouped.invoice_no ASC, grouped.sku_code ASC
 ";
 
     $notSuppliedStmt = $pdo->prepare($notSuppliedSql);

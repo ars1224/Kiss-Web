@@ -1,28 +1,49 @@
 .orders-report-page {
     padding: 20px;
+    max-width: 1600px;
+    margin: 0 auto;
 }
 
-.orders-header {
+.orders-report-hero {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
     gap: 16px;
     margin-bottom: 20px;
+    padding: 18px 20px;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    background: #ffffff;
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.06);
 }
 
-.orders-header h1 {
+.orders-report-hero span {
+    display: block;
+    margin-bottom: 4px;
+    color: #0f766e;
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.orders-report-hero h1 {
     margin: 0;
+    color: #0f172a;
+    font-size: 30px;
 }
 
-.orders-header p {
+.orders-report-hero p {
     margin: 6px 0 0;
-    color: #555;
+    color: #64748b;
+    font-weight: 600;
 }
 
 .back-orders-btn,
 .view-report-btn {
     text-decoration: none;
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     background: #0f766e;
     color: #ffffff;
     border: none;
@@ -40,39 +61,60 @@
 .orders-report-card-wrap {
     padding: 18px;
     margin-bottom: 20px;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.06);
 }
 
-.orders-report-filters {
-    display: flex;
+.orders-report-toolbar {
+    display: grid;
+    grid-template-columns: minmax(160px, 220px) minmax(160px, 220px) auto auto;
     align-items: end;
     gap: 12px;
     margin-bottom: 18px;
 }
 
-.orders-report-filters .form-group {
+.orders-report-toolbar .form-group {
     display: flex;
     flex-direction: column;
     gap: 6px;
 }
 
-.orders-report-filters label {
+.orders-report-toolbar label {
     font-weight: 700;
+    color: #334155;
+    font-size: 13px;
 }
 
-.orders-report-filters input {
+.orders-report-toolbar input {
+    min-height: 44px;
     padding: 10px 12px;
     border: 1px solid #d1d5db;
     border-radius: 7px;
 }
 
-#generateOrdersReportBtn {
+.orders-report-btn {
+    min-height: 44px;
     padding: 11px 16px;
-    background: #4361ee;
     color: #ffffff;
     border: none;
     border-radius: 7px;
     font-weight: 700;
     cursor: pointer;
+    white-space: nowrap;
+}
+
+.orders-report-btn:disabled {
+    cursor: wait;
+    opacity: 0.7;
+}
+
+.report-generate-btn {
+    background: #2563eb;
+}
+
+.report-pdf-btn {
+    background: #0f766e;
 }
 
 .orders-report-cards {
@@ -87,6 +129,7 @@
     border-left: 5px solid #4361ee;
     border-radius: 10px;
     padding: 14px;
+    min-width: 0;
 }
 
 .orders-report-card span {
@@ -112,10 +155,36 @@
 .orders-report-table-card {
     padding: 18px;
     margin-bottom: 20px;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.06);
 }
 
-.orders-report-table-card h2 {
-    margin: 0 0 14px;
+.orders-report-section-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 14px;
+}
+
+.orders-report-section-heading h2 {
+    margin: 0 0 5px;
+    color: #0f172a;
+    font-size: 22px;
+}
+
+.orders-report-section-heading p {
+    margin: 0;
+    color: #64748b;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.orders-report-table-card .table-wrap {
+    overflow: auto;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
 }
 
 .orders-report-table {
@@ -127,15 +196,23 @@
 
 .orders-report-table th,
 .orders-report-table td {
-    border: 1px solid #dcdfe4;
+    border-bottom: 1px solid #e5e7eb;
+    border-left: 0;
+    border-right: 0;
+    border-top: 0;
     padding: 10px;
     font-size: 14px;
     text-align: left;
 }
 
 .orders-report-table th {
-    background: #111827;
-    color: #ffffff;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: #f8fafc;
+    color: #334155;
+    font-size: 12px;
+    text-transform: uppercase;
 }
 
 .report-empty {
@@ -202,15 +279,33 @@
         grid-template-columns: repeat(3, 1fr);
     }
 
-    .orders-header,
-    .orders-report-filters {
+    .orders-report-hero {
         flex-direction: column;
         align-items: stretch;
+    }
+
+    .orders-report-toolbar {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
 
 @media (max-width: 700px) {
     .orders-report-cards {
+        grid-template-columns: 1fr;
+    }
+
+    .orders-report-page {
+        padding: 12px;
+    }
+
+    .orders-report-hero,
+    .orders-report-card-wrap,
+    .orders-report-table-card {
+        padding: 14px;
+        border-radius: 12px;
+    }
+
+    .orders-report-toolbar {
         grid-template-columns: 1fr;
     }
 }

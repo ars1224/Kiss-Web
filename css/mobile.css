@@ -700,7 +700,8 @@ body.app-shell > .main-content {
         max-width: none !important;
     }
 
-    .orders-report-page .orders-header {
+    .orders-report-page .orders-header,
+    .orders-report-page .orders-report-hero {
         align-items: stretch;
     }
 
@@ -712,14 +713,17 @@ body.app-shell > .main-content {
         justify-content: center;
     }
 
-    .orders-report-filters {
+    .orders-report-filters,
+    .orders-report-toolbar {
         display: grid !important;
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 8px;
     }
 
     .orders-report-filters .form-group,
-    .orders-report-filters button {
+    .orders-report-toolbar .form-group,
+    .orders-report-filters button,
+    .orders-report-toolbar button {
         width: 100%;
     }
 
@@ -1503,7 +1507,8 @@ body.app-shell > .main-content {
         max-height: none;
     }
 
-    .orders-report-filters {
+    .orders-report-filters,
+    .orders-report-toolbar {
         grid-template-columns: 1fr !important;
     }
 

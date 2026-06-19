@@ -25,6 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('checkedBtn')?.addEventListener('click', checkOrder);
     document.getElementById('bookCourierBtn')?.addEventListener('click', bookCourier);
     document.getElementById('uploadPackingSlipBtn')?.addEventListener('click', uploadPackingSlip);
+    document.getElementById('downloadPickSlipBtn')?.addEventListener('click', downloadCurrentPickSlip);
 
     document.getElementById('courierName')?.addEventListener('change', () => {
         const courier = document.getElementById('courierName').value;
@@ -349,7 +350,9 @@ function renderOrder(order, items) {
 
     const downloadBtn = document.getElementById('downloadPickSlipBtn');
     if (downloadBtn) {
-        downloadBtn.href = `php/functions/export_pick_slip.php?id=${encodeURIComponent(orderId)}`;
+        const downloadUrl = `php/functions/export_pick_slip.php?id=${encodeURIComponent(orderId)}`;
+        downloadBtn.href = downloadUrl;
+        downloadBtn.dataset.downloadUrl = downloadUrl;
         downloadBtn.style.display =
             ['waiting_packing_slip', 'sent'].includes(order.status) ? 'inline-block' : 'none';
     }
@@ -487,9 +490,12 @@ function renderItems(items, isPicking) {
         const ctnLines = splitAlignedLines(item.picked_ctn_no || item.ctn_no || '');
         const commentLines = splitAlignedLines(item.comment || '');
 
-        const isNoStock =
-            batchLines.some(v => String(v).toUpperCase().includes('NO STOCK')) ||
-            locationLines.some(v => String(v).toUpperCase().includes('NO STOCK'));
+        const itemFullyNoStock = isItemFullyNoStock(
+            item,
+            batchLines,
+            locationLines,
+            qtySuppliedLines
+        );
 
         const hasManyLocations = locationLines.filter(Boolean).length > 1;
         const hasPartBoxLine = qtySuppliedLines.filter(Boolean).length > 1;
@@ -506,7 +512,7 @@ function renderItems(items, isPicking) {
         const locationShouldSpan = !hasManyLocations;
 
         const commentHasAnyValue = commentLines.some(v => String(v || '').trim() !== '');
-        const commentShouldSpan = isNoStock || !commentHasAnyValue;
+        const commentShouldSpan = itemFullyNoStock || !commentHasAnyValue;
 
         const maxLines = Math.max(
             batchLines.length,
@@ -561,8 +567,8 @@ function renderItems(items, isPicking) {
                     }
 
                     ${ctnShouldSpan
-                        ? `<td rowspan="${maxLines}" class="merged-cell center-cell ctn-number-cell" style="text-align:center !important; vertical-align:middle !important;"><div class="ctn-number-value">${renderSingleCtnInput(ctnLines[0] || '', isPicking, item)}</div></td>`
-                        : `<td class="center-cell ctn-number-cell" style="text-align:center !important; vertical-align:middle !important;"><div class="ctn-number-value">${renderSingleCtnInput(ctnLines[i] || '', canEditRow, item)}</div></td>`
+                        ? `<td rowspan="${maxLines}" class="merged-cell center-cell ctn-number-cell" style="text-align:center !important; vertical-align:middle !important;"><div class="ctn-number-value">${renderSingleCtnInput(ctnLines[0] || '', isPicking, item, 0)}</div></td>`
+                        : `<td class="center-cell ctn-number-cell" style="text-align:center !important; vertical-align:middle !important;"><div class="ctn-number-value">${renderSingleCtnInput(ctnLines[i] || '', canEditRow, item, i)}</div></td>`
                     }
 
                     ${locationShouldSpan
@@ -601,7 +607,7 @@ function renderItems(items, isPicking) {
                     ${!fullCtnShouldSpan ? `<td class="center-cell full-ctn-cell" style="text-align:center !important; vertical-align:middle !important;"><div class="full-ctn-value">${escapeHtml(fullCtnLines[i] || '')}</div></td>` : ''}
 
                     ${!ctnShouldSpan
-                        ? `<td class="center-cell ctn-number-cell" style="text-align:center !important; vertical-align:middle !important;"><div class="ctn-number-value">${renderSingleCtnInput(ctnLines[i] || '', canEditRow, item)}</div></td>`
+                        ? `<td class="center-cell ctn-number-cell" style="text-align:center !important; vertical-align:middle !important;"><div class="ctn-number-value">${renderSingleCtnInput(ctnLines[i] || '', canEditRow, item, i)}</div></td>`
                         : ''
                     }
 
@@ -680,14 +686,13 @@ function renderMultiLine(lines) {
 
 
 function renderCtnInputs(lines, maxLines, isPicking, item) {
-    const batchLines = splitLines(item.batch_no || '');
-    const locationLines = splitLines(item.location || '');
+    const batchLines = splitAlignedLines(item.batch_no || '');
+    const locationLines = splitAlignedLines(item.location || '');
+    const qtySuppliedLines = splitAlignedLines(item.qty_supplied_per_batch || item.qty_supplied || '');
     let html = '';
 
     for (let i = 0; i < maxLines; i++) {
-        const isNoStock =
-            (batchLines[i] || '').toUpperCase().includes('NO STOCK') ||
-            (locationLines[i] || '').toUpperCase().includes('NO STOCK');
+        const isNoStock = isNoStockLine(batchLines, locationLines, qtySuppliedLines, i);
 
         if (isPicking && !isNoStock) {
             html += `<div class="stack-line"><input class="pick-ctn-input" type="text" value="${escapeHtml(lines[i] || '')}" placeholder="CTN #"></div>`;
@@ -700,14 +705,13 @@ function renderCtnInputs(lines, maxLines, isPicking, item) {
 }
 
 function renderDoneInputs(lines, maxLines, isPicking, item) {
-    const batchLines = splitLines(item.batch_no || '');
-    const locationLines = splitLines(item.location || '');
+    const batchLines = splitAlignedLines(item.batch_no || '');
+    const locationLines = splitAlignedLines(item.location || '');
+    const qtySuppliedLines = splitAlignedLines(item.qty_supplied_per_batch || item.qty_supplied || '');
     let html = '';
 
     for (let i = 0; i < maxLines; i++) {
-        const isNoStock =
-            (batchLines[i] || '').toUpperCase().includes('NO STOCK') ||
-            (locationLines[i] || '').toUpperCase().includes('NO STOCK');
+        const isNoStock = isNoStockLine(batchLines, locationLines, qtySuppliedLines, i);
 
         const checked = lines[i] === '1';
 
@@ -723,14 +727,7 @@ function renderDoneInputs(lines, maxLines, isPicking, item) {
 
 function isPickingComplete(items) {
     return items.every(item => {
-        const batchLines = splitLines(item.batch_no || '');
-        const locationLines = splitLines(item.location || '');
-
-        const isNoStock =
-            batchLines.some(v => v.toUpperCase().includes('NO STOCK')) ||
-            locationLines.some(v => v.toUpperCase().includes('NO STOCK'));
-
-        if (isNoStock) {
+        if (isItemFullyNoStock(item)) {
             return true;
         }
 
@@ -763,6 +760,67 @@ function splitAlignedLines(value) {
     return String(value)
         .split(/[|,]/)
         .map(v => v.trim());
+}
+
+function isNoStockValue(value) {
+    return String(value ?? '').trim().toUpperCase().includes('NO STOCK');
+}
+
+function isNoStockLine(batchLines, locationLines, qtySuppliedLines, index) {
+    return isNoStockValue(batchLines[index]) ||
+        isNoStockValue(locationLines[index]) ||
+        isNoStockValue(qtySuppliedLines[index]);
+}
+
+function hasStockedLine(batchLines, locationLines, qtySuppliedLines, index) {
+    const batch = String(batchLines[index] ?? '').trim();
+    const location = String(locationLines[index] ?? '').trim();
+    const qtySupplied = String(qtySuppliedLines[index] ?? '').trim();
+
+    if (isNoStockLine(batchLines, locationLines, qtySuppliedLines, index)) {
+        return false;
+    }
+
+    return batch !== '' || location !== '' || qtySupplied !== '';
+}
+
+function isItemFullyNoStock(item, batchLinesArg, locationLinesArg, qtySuppliedLinesArg) {
+    const totalSupplied = String(item.total_qty_supplied ?? item.qty_supplied ?? '').trim();
+
+    if (totalSupplied !== '' && isNoStockValue(totalSupplied)) {
+        return true;
+    }
+
+    const batchLines = batchLinesArg || splitAlignedLines(item.batch_no || '');
+    const locationLines = locationLinesArg || splitAlignedLines(item.location || '');
+    const qtySuppliedLines = qtySuppliedLinesArg || splitAlignedLines(
+        item.qty_supplied_per_batch || item.qty_supplied || ''
+    );
+    const lineCount = Math.max(batchLines.length, locationLines.length, qtySuppliedLines.length, 1);
+
+    let hasNoStock = false;
+    let hasStock = false;
+
+    for (let index = 0; index < lineCount; index++) {
+        if (isNoStockLine(batchLines, locationLines, qtySuppliedLines, index)) {
+            hasNoStock = true;
+        }
+
+        if (hasStockedLine(batchLines, locationLines, qtySuppliedLines, index)) {
+            hasStock = true;
+        }
+    }
+
+    return hasNoStock && !hasStock;
+}
+
+function isNoStockLineFromItem(item, lineIndex) {
+    return isNoStockLine(
+        splitAlignedLines(item.batch_no || ''),
+        splitAlignedLines(item.location || ''),
+        splitAlignedLines(item.qty_supplied_per_batch || item.qty_supplied || ''),
+        lineIndex
+    );
 }
 
 function renderMultiLine(value) {
@@ -870,12 +928,7 @@ function shouldMergeCtnNo(fullCtnValue) {
 }
 
 function renderMergedCtnInput(lines, maxLines, isPicking, item) {
-    const batchLines = splitLines(item.batch_no || '');
-    const locationLines = splitLines(item.location || '');
-
-    const isNoStock =
-        batchLines.some(v => v.toUpperCase().includes('NO STOCK')) ||
-        locationLines.some(v => v.toUpperCase().includes('NO STOCK'));
+    const isNoStock = isItemFullyNoStock(item);
 
     const value = String(lines || '');
 
@@ -901,11 +954,7 @@ function renderMergedCtnInput(lines, maxLines, isPicking, item) {
 }
 
 function renderLineDone(item, canEditRow, lineIndex) {
-    const isNoStock =
-        splitLines(item.batch_no || '').some(v => v.toUpperCase().includes('NO STOCK')) ||
-        splitLines(item.location || '').some(v => v.toUpperCase().includes('NO STOCK'));
-
-    if (isNoStock) {
+    if (isItemFullyNoStock(item)) {
         return `<span class="na-text">N/A</span>`;
     }
 
@@ -950,32 +999,17 @@ function renderSingleDone(item, isPicking) {
 }
 
 function formatQtySupplied(item) {
-    const batchLines = splitLines(item.batch_no || '');
-    const locationLines = splitLines(item.location || '');
-
-    const isNoStock =
-        batchLines.some(v => v.toUpperCase().includes('NO STOCK')) ||
-        locationLines.some(v => v.toUpperCase().includes('NO STOCK'));
-
     const qty = Number(item.qty_supplied);
 
-    if (isNoStock || qty === 0) {
+    if (isItemFullyNoStock(item) || qty === 0) {
         return 'NO STOCK';
     }
 
     return item.qty_supplied;
 }
 
-function renderSingleCtnInput(value, isPicking, item) {
-
-    const batchLines = splitLines(item.batch_no || '');
-    const locationLines = splitLines(item.location || '');
-
-    const isNoStock =
-        batchLines.some(v => v.toUpperCase().includes('NO STOCK')) ||
-        locationLines.some(v => v.toUpperCase().includes('NO STOCK'));
-
-    if (isNoStock) {
+function renderSingleCtnInput(value, isPicking, item, lineIndex = 0) {
+    if (isNoStockLineFromItem(item, lineIndex)) {
         return 'NO STOCK';
     }
 
@@ -1016,5 +1050,85 @@ async function printSkuLabels(itemId) {
         console.error(error);
         alert('Print request failed.');
     }
+}
+
+async function downloadCurrentPickSlip(event) {
+    event.preventDefault();
+
+    const button = event.currentTarget;
+    const url = button.dataset.downloadUrl || button.getAttribute('href');
+
+    if (!url) {
+        return;
+    }
+
+    const originalText = button.textContent;
+    const invoice = currentOrder?.invoice_no || orderId || 'order';
+
+    button.style.pointerEvents = 'none';
+    button.setAttribute('aria-busy', 'true');
+    button.textContent = 'Preparing...';
+
+    try {
+        await downloadGeneratedOrderFile(
+            url,
+            `pick_slip_${sanitizeDownloadFilename(invoice)}.xlsx`
+        );
+    } catch (error) {
+        console.error(error);
+        alert(error.message || 'Pick slip download failed.');
+    } finally {
+        button.style.pointerEvents = '';
+        button.removeAttribute('aria-busy');
+        button.textContent = originalText;
+    }
+}
+
+async function downloadGeneratedOrderFile(url, fallbackFilename) {
+    const response = await fetch(url, { cache: 'no-store' });
+
+    if (!response.ok) {
+        const message = await response.text();
+        throw new Error(message || 'Download failed.');
+    }
+
+    const blob = await response.blob();
+    const filename = getDownloadFilename(response, fallbackFilename);
+    saveBlob(blob, filename);
+}
+
+function getDownloadFilename(response, fallbackFilename) {
+    const disposition = response.headers.get('Content-Disposition') || '';
+    const filenameMatch = disposition.match(/filename\*=UTF-8''([^;]+)|filename="?([^";]+)"?/i);
+    const filename = filenameMatch ? (filenameMatch[1] || filenameMatch[2]) : '';
+
+    if (!filename) {
+        return fallbackFilename;
+    }
+
+    try {
+        return decodeURIComponent(filename);
+    } catch (error) {
+        return filename;
+    }
+}
+
+function saveBlob(blob, filename) {
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+
+    link.href = objectUrl;
+    link.download = filename;
+    link.style.display = 'none';
+
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+}
+
+function sanitizeDownloadFilename(value) {
+    return String(value || 'file').replace(/[^A-Za-z0-9_-]+/g, '_');
 }
 

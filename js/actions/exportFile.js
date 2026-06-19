@@ -48,16 +48,7 @@ if (!response.ok) {
   const errorBody = await response.text();
   console.error('Export error body:', errorBody);
 
-  alert('Export failed (server error). Falling back to normal download.');
-
-  // fall back to old behaviour so at least you still get a file
-  form.innerHTML = '';
-  const inp = document.createElement('input');
-  inp.type = 'hidden';
-  inp.name = 'ids_csv';
-  inp.value = ids.join(',');
-  form.appendChild(inp);
-  form.submit();
+  alert(errorBody || 'Export failed. Please try again.');
   return;
 }
 
@@ -107,7 +98,7 @@ if (!response.ok) {
       URL.revokeObjectURL(url);
     } catch (err) {
       console.error('Export fetch failed:', err);
+      alert('Export failed. Please try again.');
     }
   });
 })();
-

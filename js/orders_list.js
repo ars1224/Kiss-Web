@@ -188,10 +188,10 @@ function renderOrders(orders) {
             : ''
         }
 
-        <a class="btn-mini btn-download"
-           href="php/functions/export_pick_slip.php?id=${order.id}">
+        <button type="button" class="btn-mini btn-download"
+           onclick="downloadPickSlip(${order.id}, this)">
             Pick Slip
-        </a>
+        </button>
 
         ${(order.status || '') === 'sent' && order.packing_slip_file
     ? `
@@ -390,4 +390,76 @@ function updateOrdersUrl() {
         : window.location.pathname;
 
     window.history.replaceState({}, '', newUrl);
+}
+
+async function downloadPickSlip(id, button) {
+    const order = allOrders.find(row => Number(row.id) === Number(id));
+    const invoice = order?.invoice_no || id || 'order';
+    const originalText = button ? button.textContent : '';
+    const url = `php/functions/export_pick_slip.php?id=${encodeURIComponent(id)}`;
+
+    if (button) {
+        button.disabled = true;
+        button.textContent = 'Preparing...';
+    }
+
+    try {
+        await downloadGeneratedFile(url, `pick_slip_${sanitizeDownloadFilename(invoice)}.xlsx`);
+    } catch (error) {
+        console.error(error);
+        alert(error.message || 'Pick slip download failed.');
+    } finally {
+        if (button) {
+            button.disabled = false;
+            button.textContent = originalText || 'Pick Slip';
+        }
+    }
+}
+
+async function downloadGeneratedFile(url, fallbackFilename) {
+    const response = await fetch(url, { cache: 'no-store' });
+
+    if (!response.ok) {
+        const message = await response.text();
+        throw new Error(message || 'Download failed.');
+    }
+
+    const blob = await response.blob();
+    const filename = getDownloadFilename(response, fallbackFilename);
+    saveBlob(blob, filename);
+}
+
+function getDownloadFilename(response, fallbackFilename) {
+    const disposition = response.headers.get('Content-Disposition') || '';
+    const filenameMatch = disposition.match(/filename\*=UTF-8''([^;]+)|filename="?([^";]+)"?/i);
+    const filename = filenameMatch ? (filenameMatch[1] || filenameMatch[2]) : '';
+
+    if (!filename) {
+        return fallbackFilename;
+    }
+
+    try {
+        return decodeURIComponent(filename);
+    } catch (error) {
+        return filename;
+    }
+}
+
+function saveBlob(blob, filename) {
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+
+    link.href = objectUrl;
+    link.download = filename;
+    link.style.display = 'none';
+
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+}
+
+function sanitizeDownloadFilename(value) {
+    return String(value || 'file').replace(/[^A-Za-z0-9_-]+/g, '_');
 }

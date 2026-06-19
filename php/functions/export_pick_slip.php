@@ -30,7 +30,7 @@ if (!$order) {
 
 $stmt = $pdo->prepare("SELECT * FROM order_items WHERE order_id = :id ORDER BY id ASC");
 $stmt->execute([':id' => $id]);
-$items = $stmt->fetchAll();
+$items = mergePickSlipItems($stmt->fetchAll());
 
 $spreadsheet = new Spreadsheet();
 $sheet = $spreadsheet->getActiveSheet();
@@ -133,10 +133,10 @@ foreach ($items as $item) {
     $comment = (string)($item['comment'] ?? '');
     $unitsPerCtn = (string)($item['units_per_ctn'] ?? '');
     $fullCtn = (string)($item['full_ctn'] ?? '');
-    $ctnNo = (string)($item['picked_ctn_no'] ?? $item['ctn_no'] ?? '');
-    if (stripos($batchNo, 'NO STOCK') !== false) {
-    $ctnNo = 'NO STOCK';
-}
+    $ctnNo = trim((string)($item['picked_ctn_no'] ?? ''));
+    if ($ctnNo === '') {
+        $ctnNo = (string)($item['ctn_no'] ?? '');
+    }
 
     $sheet->setCellValue("A{$row}", $item['sku_code'] ?? '');
     $sheet->setCellValue("B{$row}", richNoStock($batchNo));
@@ -161,7 +161,16 @@ foreach ($items as $item) {
     ->setHorizontal(Alignment::HORIZONTAL_LEFT)
     ->setVertical(Alignment::VERTICAL_CENTER);
 
-    $sheet->getRowDimension($row)->setRowHeight(24);
+    $lineCount = max(
+        count(splitPipeLines($batchNo)),
+        count(splitPipeLines($location)),
+        count(splitPipeLines($comment)),
+        count(splitPipeLines($unitsPerCtn)),
+        count(splitPipeLines($fullCtn)),
+        count(splitPipeLines($ctnNo)),
+        1
+    );
+    $sheet->getRowDimension($row)->setRowHeight(max(24, $lineCount * 18));
 
    $isNoStock =
             stripos($batchNo, 'NO STOCK') !== false ||
@@ -265,6 +274,192 @@ exit;
 function multiline(string $value): string
 {
     return str_replace(' | ', "\n", $value);
+}
+
+function mergePickSlipItems(array $items): array
+{
+    $merged = [];
+    $order = [];
+
+    foreach ($items as $sequence => $item) {
+        $key = mb_strtoupper(
+            trim((string)($item['sku_code'] ?? '')) . '|' .
+            trim((string)($item['description'] ?? ''))
+        );
+
+        if (!isset($merged[$key])) {
+            $merged[$key] = $item;
+            $merged[$key]['_order_qty'] = 0.0;
+            $merged[$key]['_total_qty'] = 0.0;
+            $merged[$key]['_qty_supplied'] = 0.0;
+            $merged[$key]['_has_qty_supplied'] = false;
+            $merged[$key]['_has_no_stock_supply'] = false;
+            $merged[$key]['_batch_lines'] = [];
+            $merged[$key]['_unit_lines'] = [];
+            $merged[$key]['_full_ctn_lines'] = [];
+            $merged[$key]['_ctn_lines'] = [];
+            $merged[$key]['_location_lines'] = [];
+            $merged[$key]['_comment_lines'] = [];
+            $merged[$key]['_sequence'] = $sequence;
+            $order[] = $key;
+        }
+
+        $orderQty = toNumber($item['order_qty'] ?? '');
+        $totalQty = toNumber($item['total_qty'] ?? '');
+        $suppliedQty = toNumber(($item['total_qty_supplied'] ?? '') ?: ($item['qty_supplied'] ?? ''));
+
+        if ($orderQty !== null) {
+            $merged[$key]['_order_qty'] = max($merged[$key]['_order_qty'], $orderQty);
+        }
+
+        if ($totalQty !== null) {
+            $merged[$key]['_total_qty'] = max($merged[$key]['_total_qty'], $totalQty);
+        }
+
+        if ($suppliedQty !== null) {
+            $merged[$key]['_qty_supplied'] += $suppliedQty;
+            $merged[$key]['_has_qty_supplied'] = true;
+        } elseif (
+            stripos((string)($item['total_qty_supplied'] ?? ''), 'NO STOCK') !== false ||
+            stripos((string)($item['qty_supplied'] ?? ''), 'NO STOCK') !== false
+        ) {
+            $merged[$key]['_has_no_stock_supply'] = true;
+        }
+
+        appendPipeLines($merged[$key]['_batch_lines'], (string)($item['batch_no'] ?? ''));
+        appendPipeLines($merged[$key]['_unit_lines'], (string)($item['units_per_ctn'] ?? ''));
+        appendPipeLines($merged[$key]['_full_ctn_lines'], (string)($item['full_ctn'] ?? ''));
+        appendPipeLines($merged[$key]['_location_lines'], (string)($item['location'] ?? ''));
+        appendPipeLines($merged[$key]['_comment_lines'], (string)($item['comment'] ?? ''));
+
+        $ctnValue = trim((string)(($item['picked_ctn_no'] ?? '') ?: ($item['ctn_no'] ?? '')));
+
+        if (
+            $ctnValue === '' &&
+            (
+                stripos((string)($item['batch_no'] ?? ''), 'NO STOCK') !== false ||
+                stripos((string)($item['location'] ?? ''), 'NO STOCK') !== false
+            )
+        ) {
+            $ctnValue = 'NO STOCK';
+        }
+
+        appendPipeLines($merged[$key]['_ctn_lines'], $ctnValue);
+    }
+
+    $result = [];
+
+    foreach ($order as $key) {
+        $item = $merged[$key];
+
+        $item['order_qty'] = $item['_order_qty'] > 0
+            ? formatPickSlipNumber($item['_order_qty'])
+            : (string)($item['order_qty'] ?? '');
+
+        $item['total_qty'] = $item['_total_qty'] > 0
+            ? formatPickSlipNumber($item['_total_qty'])
+            : (string)($item['total_qty'] ?? '');
+
+        if ($item['_has_qty_supplied']) {
+            $item['qty_supplied'] = formatPickSlipNumber($item['_qty_supplied']);
+        } elseif ($item['_has_no_stock_supply']) {
+            $item['qty_supplied'] = 'NO STOCK';
+        }
+
+        if ($item['_has_qty_supplied'] && $item['_has_no_stock_supply']) {
+            $item['_batch_lines'] = removeNoStockLines($item['_batch_lines']);
+            $item['_unit_lines'] = removeNoStockLines($item['_unit_lines']);
+            $item['_full_ctn_lines'] = removeNoStockLines($item['_full_ctn_lines']);
+            $item['_ctn_lines'] = removeNoStockLines($item['_ctn_lines']);
+            $item['_location_lines'] = removeNoStockLines($item['_location_lines']);
+            $item['_comment_lines'] = normalizeShortComments($item['_comment_lines']);
+        }
+
+        $item['batch_no'] = implode(' | ', $item['_batch_lines']);
+        $item['units_per_ctn'] = implode(' | ', $item['_unit_lines']);
+        $item['full_ctn'] = implode(' | ', $item['_full_ctn_lines']);
+        $item['ctn_no'] = implode(' | ', $item['_ctn_lines']);
+        $item['picked_ctn_no'] = '';
+        $item['location'] = implode(' | ', $item['_location_lines']);
+        $item['comment'] = implode(' | ', $item['_comment_lines']);
+
+        unset(
+            $item['_order_qty'],
+            $item['_total_qty'],
+            $item['_qty_supplied'],
+            $item['_has_qty_supplied'],
+            $item['_has_no_stock_supply'],
+            $item['_batch_lines'],
+            $item['_unit_lines'],
+            $item['_full_ctn_lines'],
+            $item['_ctn_lines'],
+            $item['_location_lines'],
+            $item['_comment_lines']
+        );
+
+        $result[] = $item;
+    }
+
+    usort($result, static function (array $a, array $b): int {
+        return ((int)($a['_sequence'] ?? 0)) <=> ((int)($b['_sequence'] ?? 0));
+    });
+
+    foreach ($result as &$item) {
+        unset($item['_sequence']);
+    }
+    unset($item);
+
+    return $result;
+}
+
+function appendPipeLines(array &$target, string $value): void
+{
+    foreach (splitPipeLines($value) as $line) {
+        if ($line !== '') {
+            $target[] = $line;
+        }
+    }
+}
+
+function removeNoStockLines(array $lines): array
+{
+    return array_values(array_filter(
+        $lines,
+        static fn (string $line): bool => stripos($line, 'NO STOCK') === false
+    ));
+}
+
+function normalizeShortComments(array $lines): array
+{
+    $clean = removeNoStockLines($lines);
+
+    foreach ($clean as $line) {
+        if (stripos($line, 'Short') !== false) {
+            return $clean;
+        }
+    }
+
+    $clean[] = 'Short';
+
+    return $clean;
+}
+
+function splitPipeLines(string $value): array
+{
+    if (trim($value) === '') {
+        return [];
+    }
+
+    return array_map('trim', explode('|', $value));
+}
+
+function formatPickSlipNumber(float $value): string
+{
+    if ((float)(int)$value === $value) {
+        return number_format($value, 0, '.', '');
+    }
+
+    return rtrim(rtrim(number_format($value, 6, '.', ''), '0'), '.');
 }
 
 function richNoStock(string $value): RichText|string
