@@ -204,17 +204,16 @@ function buildPickingListRows(
             $resolvedUnitsPerCtn = getResolvedUnitsPerCtn($stockRows);
 
             if ($roundingEnabled && $resolvedUnitsPerCtn > 0) {
-                $cartonsRaw = $requestedQty / $resolvedUnitsPerCtn;
-                $roundedCartons = max(
-                    1,
-                    (int) round($cartonsRaw, 0, PHP_ROUND_HALF_UP)
+                $displayQtySupplied = roundCartonRemainderUp(
+                    $requestedQty,
+                    $resolvedUnitsPerCtn
                 );
-                $displayQtySupplied = $resolvedUnitsPerCtn * $roundedCartons;
             }
 
             $remainingForDisplay = (float)$displayQtySupplied;
+            $allocatedQtyByStockIndex = [];
 
-            foreach ($stockRows as $stock) {
+            foreach ($stockRows as $stockIndex => $stock) {
                 if ($remainingForDisplay <= 0) {
                     break;
                 }
@@ -244,6 +243,7 @@ function buildPickingListRows(
 
                     $take = $cartonsToTake * $qtyPerCtn;
                     $fullCtn = $cartonsToTake;
+                    $allocatedQtyByStockIndex[$stockIndex] = $take;
                 } else {
                     $take = min($remainingForDisplay, $availableQty);
                     $fullCtn = $qtyPerCtn > 0 ? (int) floor($take / $qtyPerCtn) : 0;
@@ -263,6 +263,51 @@ function buildPickingListRows(
                 $commentLines[] = $comments;
 
                 $remainingForDisplay -= $take;
+            }
+
+            // When rounding is enabled, a below-half quantity is only kept as
+            // a part carton if there are no full cartons on the line. Do not
+            // add a remainder after full cartons.
+            if (
+                $roundingEnabled
+                && empty($qtySuppliedLines)
+                && $remainingForDisplay > 0
+                && $remainingForDisplay < ($resolvedUnitsPerCtn / 2)
+            ) {
+                foreach ($stockRows as $stockIndex => $stock) {
+                    if ($remainingForDisplay <= 0) {
+                        break;
+                    }
+
+                    $availableQty = (float)($stock['TotalQty'] ?? 0)
+                        - (float)($allocatedQtyByStockIndex[$stockIndex] ?? 0);
+
+                    if ($availableQty <= 0) {
+                        continue;
+                    }
+
+                    $take = min($remainingForDisplay, $availableQty);
+                    $qtyPerCtn = (float)($stock['QtyPerCtn'] ?? 0);
+
+                    if ($qtyPerCtn <= 0) {
+                        $qtyPerCtn = $resolvedUnitsPerCtn;
+                    }
+
+                    $batchNo = trim((string)($stock['BatchNo'] ?? ''));
+                    $expiryDate = trim((string)($stock['ExpiryDate'] ?? ''));
+                    $comments = trim((string)($stock['Comments'] ?? ''));
+                    $batchExpiry = trim($batchNo . ' ' . $expiryDate);
+
+                    $batchLines[] = $batchExpiry !== '' ? $batchExpiry : 'n/a';
+                    $qtySuppliedLines[] = formatNumber($take);
+                    $unitsPerCtnLines[] = $qtyPerCtn > 0 ? formatNumber($qtyPerCtn) : '';
+                    $noFullCtnLines[] = '';
+                    $ctnLines[] = '';
+                    $locationLines[] = (string)($stock['Location'] ?? '');
+                    $commentLines[] = $comments;
+
+                    $remainingForDisplay -= $take;
+                }
             }
 
             if (
@@ -471,6 +516,28 @@ function getResolvedUnitsPerCtn(array $stockRows): float
     }
 
     return 0.0;
+}
+
+function roundCartonRemainderUp(float $requestedQty, float $qtyPerCtn): float
+{
+    if ($requestedQty <= 0 || $qtyPerCtn <= 0) {
+        return $requestedQty;
+    }
+
+    $fullCartons = (int) floor($requestedQty / $qtyPerCtn);
+    $fullCartonQty = $fullCartons * $qtyPerCtn;
+    $remainder = $requestedQty - $fullCartonQty;
+    $epsilon = max(1.0E-9, abs($qtyPerCtn) * 1.0E-9);
+
+    if ($remainder + $epsilon >= ($qtyPerCtn / 2)) {
+        return $fullCartonQty + $qtyPerCtn;
+    }
+
+    if ($fullCartons > 0) {
+        return $fullCartonQty;
+    }
+
+    return $requestedQty;
 }
 
 function groupImportedLines(array $lines): array

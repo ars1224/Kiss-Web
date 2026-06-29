@@ -45,31 +45,26 @@ function expand_ctn_numbers(string $value): array {
     return array_values(array_unique($numbers));
 }
 
-function pdf_center_fit(
+function pdf_font_size_to_fit(
     TCPDF $pdf,
-    float $x,
-    float $y,
     float $w,
-    float $h,
     string $text,
     string $font,
     string $style,
     int $maxSize,
     int $minSize = 12
-): void {
+): ?int {
     $text = trim($text);
-    if ($text === '') return;
+    if ($text === '') return null;
 
-    $size = $maxSize;
-
-    while ($size > $minSize) {
+    for ($size = $maxSize; $size >= $minSize; $size--) {
         $pdf->SetFont($font, $style, $size);
-        if ($pdf->GetStringWidth($text) <= ($w - 2)) break;
-        $size--;
+        if ($pdf->GetStringWidth($text) <= ($w - 2)) {
+            return $size;
+        }
     }
 
-    $pdf->SetXY($x, $y);
-    $pdf->Cell($w, $h, $text, 0, 1, 'C', false, '', 0, false, 'T', 'M');
+    return null;
 }
 
 $orderId = (int)($_GET['id'] ?? $_POST['id'] ?? 0);
@@ -80,6 +75,7 @@ if ($orderId <= 0 && $itemId <= 0) {
 }
 
 $pdo = db();
+$requestedCartons = null;
 
 /*
 |--------------------------------------------------------------------------
@@ -94,13 +90,31 @@ if ($itemId > 0) {
         LIMIT 1
     ");
     $stmt->execute([':item_id' => $itemId]);
-    $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $selectedItems = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    if (!$items) {
+    if (!$selectedItems) {
         json_fail(404, 'Order item not found.');
     }
 
-    $orderId = (int)$items[0]['order_id'];
+    $orderId = (int)$selectedItems[0]['order_id'];
+    $requestedCartons = [];
+
+    foreach ($selectedItems as $selectedItem) {
+        $ctnRaw = trim((string)(($selectedItem['picked_ctn_no'] ?? '') ?: ($selectedItem['ctn_no'] ?? '')));
+        foreach (expand_ctn_numbers($ctnRaw) as $ctnNo) {
+            $requestedCartons[$ctnNo] = true;
+        }
+    }
+
+    // Load the other items too so a shared carton can show every SKU on one label.
+    $stmt = $pdo->prepare("
+        SELECT *
+        FROM order_items
+        WHERE order_id = :order_id
+        ORDER BY id ASC
+    ");
+    $stmt->execute([':order_id' => $orderId]);
+    $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } else {
     $stmt = $pdo->prepare("
         SELECT *
@@ -134,12 +148,10 @@ if (!$order) {
     json_fail(404, 'Order not found.');
 }
 
-$labels = [];
+$labelsByCarton = [];
 
 foreach ($items as $item) {
     $sku = trim((string)($item['sku_code'] ?? ''));
-    $description = trim((string)($item['description'] ?? ''));
-
     $ctnRaw = trim((string)(($item['picked_ctn_no'] ?? '') ?: ($item['ctn_no'] ?? '')));
 
     if ($ctnRaw === '' || strtoupper($ctnRaw) === 'NO STOCK') {
@@ -152,19 +164,25 @@ foreach ($items as $item) {
         continue;
     }
 
-    $locationText = implode(' | ', split_lines((string)($item['location'] ?? '')));
-    $batchText = implode(' | ', split_lines((string)($item['batch_no'] ?? '')));
-
     foreach ($ctnNumbers as $ctnNo) {
-        $labels[] = [
-            'ctn_no' => $ctnNo,
-            'sku' => $sku,
-            'description' => $description,
-            'location' => $locationText,
-            'batch' => $batchText,
-        ];
+        if ($requestedCartons !== null && !isset($requestedCartons[$ctnNo])) {
+            continue;
+        }
+
+        if (!isset($labelsByCarton[$ctnNo])) {
+            $labelsByCarton[$ctnNo] = [
+                'ctn_no' => $ctnNo,
+                'skus' => [],
+            ];
+        }
+
+        if ($sku !== '' && !in_array($sku, $labelsByCarton[$ctnNo]['skus'], true)) {
+            $labelsByCarton[$ctnNo]['skus'][] = $sku;
+        }
     }
 }
+
+$labels = array_values($labelsByCarton);
 
 if (!$labels) {
     json_fail(404, 'No carton labels to print.');
@@ -217,12 +235,17 @@ foreach ($labels as $label) {
     $pdf->SetXY(110, 15);
     $pdf->Cell(90, 8, 'PS  ' . ($packing !== '' ? $packing : '<Packing Slip Number>'), 0, 1, 'C');
 
-    // SKU / QTY CTN
-    $pdf->SetFont('helvetica', 'B', 20);
-    $pdf->SetXY(38, 57);
+    // Print every SKU for a shared carton when the complete line fits. If it
+    // does not fit, omit the SKU line rather than printing duplicate labels.
+    $skus = $label['skus'] ?? [];
+    $skuLine = $skus ? 'SKU: ' . implode(', ', $skus) : '';
+    $skuFontSize = pdf_font_size_to_fit($pdf, 104, $skuLine, 'helvetica', 'B', 20, 12);
 
-    $pdf->SetXY(38, 57);
-    $pdf->Cell(120,8,'SKU: ' . $label['sku'],0,1,'L');
+    if ($skuLine !== '' && (count($skus) === 1 || $skuFontSize !== null)) {
+        $pdf->SetFont('helvetica', 'B', $skuFontSize ?? 12);
+        $pdf->SetXY(6, 54);
+        $pdf->Cell(104, 10, $skuLine, 0, 1, 'C');
+    }
 
     // CARTON BIG
     $pdf->SetFont('helvetica', 'B', 50);

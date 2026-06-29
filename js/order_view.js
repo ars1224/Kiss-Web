@@ -133,7 +133,11 @@ async function startPicking() {
 }
 
 async function savePicking() {
-    const rows = document.querySelectorAll('[data-order-item-row]');
+    const mobileView = window.matchMedia('(max-width: 768px)').matches;
+    const rowSelector = mobileView
+        ? '[data-mobile-order-item-row]'
+        : '[data-order-item-row]';
+    const rows = document.querySelectorAll(rowSelector);
     const grouped = new Map();
 
     rows.forEach(row => {
@@ -354,7 +358,7 @@ function renderOrder(order, items) {
         downloadBtn.href = downloadUrl;
         downloadBtn.dataset.downloadUrl = downloadUrl;
         downloadBtn.style.display =
-            ['waiting_packing_slip', 'sent'].includes(order.status) ? 'inline-block' : 'none';
+            ['waiting_packing_slip', 'sent', 'not_sent'].includes(order.status) ? 'inline-block' : 'none';
     }
 
     document.getElementById('checkingPanel').style.display =
@@ -465,9 +469,85 @@ function renderOrder(order, items) {
                     <tbody>${renderItems(items, isPicking)}</tbody>
                 </table>
             </div>
+            <div class="mobile-order-items" aria-label="Order items">
+                ${renderMobileItems(items, isPicking)}
+            </div>
             </section>
         </div>
     `;
+}
+
+
+function renderMobileItems(items, isPicking) {
+    if (!items.length) return '<p class="mobile-order-empty">No items found.</p>';
+
+    const canPrint = ['pending', 'ongoing', 'booking', 'waiting_packing_slip']
+        .includes(currentOrder.status || '');
+
+    return items.map(item => {
+        const batch = splitAlignedLines(item.batch_no || '');
+        const ordered = splitAlignedLines(item.order_qty || '');
+        const supplied = splitAlignedLines(item.qty_supplied_per_batch || item.qty_supplied || '');
+        const units = splitAlignedLines(item.units_per_ctn || '');
+        const fullCtn = splitAlignedLines(item.full_ctn || '');
+        const locations = splitAlignedLines(item.location || '');
+        const ctn = splitAlignedLines(item.picked_ctn_no || item.ctn_no || '');
+        const comments = splitAlignedLines(item.comment || '');
+        const isDone = String(item.picked_done || '') === '1';
+        const canEdit = isPicking && !isDone;
+        const ctnInputs = Array.from(
+            { length: ctn.length > 1 ? ctn.length : 1 },
+            (_, index) => renderSingleCtnInput(ctn[index] || '', canEdit, item, index)
+        );
+        const showActions = canPrint || isDone || canEdit;
+
+        return `
+            <article class="mobile-order-card ${isDone ? 'picked-row-done' : ''}"
+                data-mobile-order-item-row data-item-id="${item.id}">
+                <header class="mobile-order-card-header">
+                    <h4>${formatEmpty(item.sku_code)}</h4>
+                    ${isDone ? '<span class="mobile-order-done-badge">Done</span>' : ''}
+                </header>
+                <div class="mobile-order-description">
+                    <span>Description</span>
+                    <strong>${formatEmpty(item.description)}</strong>
+                </div>
+                <dl class="mobile-order-details">
+                    ${renderMobileDetail('Qty Ordered', item.total_qty || ordered)}
+                    ${renderMobileDetail('Qty Supplied', item.total_qty_supplied || item.qty_supplied || supplied)}
+                    ${renderMobileDetail('Units/CTN', units)}
+                    ${renderMobileDetail('Location', locations, 'mobile-location-value')}
+                    ${renderMobileDetail('Batch / Expiry', batch)}
+                    ${renderMobileDetail('No. Full CTN', fullCtn)}
+                    ${renderMobileDetail('CTN #', ctnInputs, 'mobile-ctn-value', true)}
+                    ${renderMobileDetail('Comment', comments, 'mobile-comment-value')}
+                </dl>
+                ${showActions ? `
+                    <footer class="mobile-order-card-actions no-print">
+                        ${canPrint ? `<button type="button" class="btn-mini btn-print"
+                            onclick="printSkuLabels(${item.id})">Print</button>` : ''}
+                        ${(isDone || canEdit) ? `<label class="mobile-done-control">
+                            <span>Done</span>${renderLineDone(item, canEdit, 0)}
+                        </label>` : ''}
+                    </footer>
+                ` : ''}
+            </article>
+        `;
+    }).join('');
+}
+
+function renderMobileDetail(label, value, extraClass = '', isHtml = false) {
+    const values = (Array.isArray(value) ? value : [value])
+        .map(entry => String(entry ?? '').trim()).filter(Boolean);
+    if (!values.length && label !== 'CTN #') return '';
+
+    const content = values.length
+        ? values.map(entry => `<span>${isHtml ? entry : escapeHtml(entry)}</span>`).join('')
+        : '<span class="muted-dash">-</span>';
+
+    return `<div class="mobile-order-detail ${extraClass}">
+        <dt>${escapeHtml(label)}</dt><dd>${content}</dd>
+    </div>`;
 }
 
 function renderItems(items, isPicking) {

@@ -193,7 +193,7 @@ function renderOrders(orders) {
             Pick Slip
         </button>
 
-        ${(order.status || '') === 'sent' && order.packing_slip_file
+        ${['sent', 'not_sent'].includes(order.status || '') && order.packing_slip_file
     ? `
         <a class="btn-mini btn-packing"
            href="${escapeHtml(order.packing_slip_file)}"
