@@ -3,6 +3,8 @@ require_once __DIR__ . '/../php/util/product_location_repo.php';
 require_once __DIR__ . '/../php/util/view_helpers.php';
 
 $rows = pl_all();
+$serverDraftRows = $_SESSION['add_pallet_form_rows'] ?? [];
+unset($_SESSION['add_pallet_form_rows']);
 ?>
 
 <div class="main">
@@ -19,7 +21,9 @@ $rows = pl_all();
       <?php unset($_SESSION['form_error']); ?>
     <?php endif; ?>
 
-    <form id="multiForm" action="php/functions/location-addpallet.php" method="POST" autocomplete="off">
+    <script type="application/json" id="addPalletServerDraft"><?= json_encode($serverDraftRows, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
+
+    <form id="multiForm" action="php/functions/location-addpallet.php" method="POST" autocomplete="off" novalidate>
     <input
         type="hidden"
         name="inventory"

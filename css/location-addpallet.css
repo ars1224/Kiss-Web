@@ -75,6 +75,14 @@ table.sheet {
 .sheet input[readonly] {
     background: #f8f9fa;
 }
+.sheet input.is-invalid,
+.sheet select.is-invalid {
+    position: relative;
+    z-index: 1;
+    background: #fff5f5;
+    border: 2px solid #dc3545 !important;
+    box-shadow: 0 0 0 3px rgba(220, 53, 69, .28), inset 0 0 8px rgba(220, 53, 69, .12);
+}
 
 .actions {
     width: 100%;

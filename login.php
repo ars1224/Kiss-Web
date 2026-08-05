@@ -5,6 +5,14 @@ require_once __DIR__ . '/php/conn/db.php';
 require_once __DIR__ . '/php/auth/session.php';
 
 $message = '';
+$redirectTarget = normalizeLocalRedirectTarget(
+    $_POST['redirect'] ?? $_GET['redirect'] ?? ($_SESSION['login_redirect'] ?? ''),
+    ''
+);
+
+if ($redirectTarget !== '') {
+    $_SESSION['login_redirect'] = $redirectTarget;
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $username = trim($_POST['username'] ?? '');
@@ -29,12 +37,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $user = $stmt->fetch();
 
         if ($user && password_verify($password, $user['password_hash'])) {
+            $returnTo = normalizeLocalRedirectTarget(
+                $_POST['redirect'] ?? ($_SESSION['login_redirect'] ?? ''),
+                'index.php'
+            );
+
+            session_regenerate_id(true);
+
             $_SESSION['user_id'] = $user['id'];
             $_SESSION['name'] = $user['name'];
             $_SESSION['username'] = $user['username'];
             $_SESSION['role'] = $user['role'];
+            unset($_SESSION['login_redirect']);
 
-            header('Location: index.php');
+            header('Location: ' . $returnTo);
             exit;
         } else {
             $message = 'Invalid username or password.';
@@ -78,6 +94,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <?php endif; ?>
 
     <form method="POST">
+        <?php if ($redirectTarget !== ''): ?>
+            <input
+                type="hidden"
+                name="redirect"
+                value="<?= htmlspecialchars($redirectTarget, ENT_QUOTES, 'UTF-8') ?>"
+            >
+        <?php endif; ?>
 
         <div class="form-group">
             <label>Username</label>

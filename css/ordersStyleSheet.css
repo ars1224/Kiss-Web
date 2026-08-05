@@ -71,7 +71,8 @@
 }
 
 .form-group input,
-.form-group select {
+.form-group select,
+.form-group textarea {
     border: 1px solid #d8d8d8;
     border-radius: 8px;
     padding: 10px 12px;
@@ -81,8 +82,14 @@
 }
 
 .form-group input:focus,
-.form-group select:focus {
+.form-group select:focus,
+.form-group textarea:focus {
     border-color: #4f46e5;
+}
+
+.form-group textarea {
+    resize: vertical;
+    min-height: 86px;
 }
 
 .section-divider {
@@ -367,6 +374,16 @@
 .btn-edit {
     background: #475569;
     color: #fff;
+}
+
+.btn-reopen {
+    background: #d97706 !important;
+    color: #fff !important;
+}
+
+.btn-reopen:hover {
+    background: #b45309 !important;
+    color: #fff !important;
 }
 
 .btn-booking {
@@ -751,6 +768,23 @@
     border-radius: 8px;
 }
 
+.manual-give-all {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    color: #334155;
+    font-size: 13px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.manual-give-all input {
+    width: 18px;
+    height: 18px;
+}
+
 /* Orders list and detail UX refresh */
 .orders-table {
     background: #fff;
@@ -914,7 +948,8 @@
 }
 
 .order-meta-item,
-.order-address-block {
+.order-address-block,
+.order-comments-block {
     min-width: 0;
     padding: 10px 12px;
     border-radius: 10px;
@@ -923,7 +958,8 @@
 }
 
 .order-meta-item span,
-.order-address-block span {
+.order-address-block span,
+.order-comments-block span {
     display: block;
     margin-bottom: 4px;
     color: #64748b;
@@ -933,7 +969,8 @@
 }
 
 .order-meta-item strong,
-.order-address-block strong {
+.order-address-block strong,
+.order-comments-block strong {
     display: block;
     color: #0f172a;
     font-size: 14px;
@@ -943,6 +980,14 @@
 
 .order-address-block {
     margin-top: 10px;
+}
+
+.order-comments-block {
+    margin-top: 10px;
+}
+
+.order-comments-block strong {
+    white-space: pre-line;
 }
 
 .order-lines-card {

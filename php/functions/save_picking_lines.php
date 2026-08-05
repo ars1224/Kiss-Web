@@ -36,6 +36,13 @@ $stmt = $pdo->prepare("
       AND order_id = :order_id
 ");
 
+$stmtCtnOnly = $pdo->prepare("
+    UPDATE order_items
+    SET picked_ctn_no = :picked_ctn_no
+    WHERE id = :id
+      AND order_id = :order_id
+");
+
 $stmtCheck = $pdo->prepare("
     SELECT picked_done
     FROM order_items
@@ -60,6 +67,11 @@ foreach ($items as $item) {
     $current = $stmtCheck->fetch(PDO::FETCH_ASSOC);
 
     if ($current && (string)$current['picked_done'] === '1') {
+        $stmtCtnOnly->execute([
+            ':picked_ctn_no' => (string)($item['picked_ctn_no'] ?? ''),
+            ':id' => $itemId,
+            ':order_id' => $orderId
+        ]);
         continue;
     }
 
@@ -92,6 +104,20 @@ foreach ($items as $item) {
 
 function deductPickedItemStock(PDO $pdo, int $orderId, int $itemId, string $pickerName): void
 {
+    $stmt = $pdo->prepare("
+        SELECT invoice_no, customer_name, packing_slip
+        FROM orders
+        WHERE id = :order_id
+        LIMIT 1
+    ");
+    $stmt->execute([':order_id' => $orderId]);
+    $order = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+
+    $customerName = trim((string)($order['customer_name'] ?? '')) ?: 'Unknown customer';
+    $packingSlip = trim((string)($order['packing_slip'] ?? '')) ?: 'Not provided';
+    $invoiceNo = trim((string)($order['invoice_no'] ?? '')) ?: (string)$orderId;
+    $orderNote = "Order deduction | Customer: {$customerName} | Packing slip: {$packingSlip} | Invoice: {$invoiceNo}";
+
     $stmt = $pdo->prepare("
         SELECT *
         FROM order_items
@@ -253,7 +279,7 @@ function deductPickedItemStock(PDO $pdo, int $orderId, int $itemId, string $pick
             ':delta_qty' => -$actualDeduct,
             ':before_qty' => $beforeQty,
             ':after_qty' => $afterQty,
-            ':notes' => 'Deducted during picking for order ID ' . $orderId,
+            ':notes' => $orderNote,
             ':actor' => $pickerName
         ]);
 

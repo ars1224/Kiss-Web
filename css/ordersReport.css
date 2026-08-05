@@ -274,7 +274,168 @@
     text-decoration: underline;
 }
 
+.orders-report-graphs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.orders-report-graph-card {
+    min-width: 0;
+    padding: 18px;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    background: #ffffff;
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.06);
+}
+
+.orders-report-graph-card.wide {
+    grid-column: 1 / -1;
+}
+
+.report-bar-chart {
+    display: grid;
+    gap: 10px;
+    min-height: 232px;
+}
+
+.report-chart-row {
+    display: grid;
+    grid-template-columns: 34px minmax(150px, 1.4fr) minmax(180px, 2fr) 76px;
+    gap: 10px;
+    align-items: center;
+    min-height: 44px;
+}
+
+.report-chart-rank {
+    width: 28px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: #f1f5f9;
+    color: #475569;
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.report-chart-label {
+    min-width: 0;
+}
+
+.report-chart-label strong,
+.report-chart-label span {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.report-chart-label strong {
+    color: #0f172a;
+    font-size: 14px;
+}
+
+.report-chart-label span {
+    margin-top: 2px;
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.report-chart-track {
+    height: 14px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: #eef2f7;
+}
+
+.report-chart-fill {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: #16a34a;
+}
+
+.report-chart-ordered .report-chart-fill {
+    background: #2563eb;
+}
+
+.report-chart-value,
+.report-month-value {
+    color: #0f172a;
+    font-size: 13px;
+    font-weight: 800;
+    text-align: right;
+    white-space: nowrap;
+}
+
+.report-month-chart {
+    min-height: 260px;
+    padding: 8px 2px 0;
+    display: flex;
+    align-items: end;
+    gap: 10px;
+    overflow-x: auto;
+    overflow-y: hidden;
+}
+
+.report-month-bar {
+    flex: 1 0 74px;
+    min-width: 74px;
+    display: grid;
+    grid-template-rows: 22px 180px auto;
+    gap: 8px;
+    align-items: end;
+    text-align: center;
+}
+
+.report-month-track {
+    height: 180px;
+    display: flex;
+    align-items: end;
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background: #f8fafc;
+}
+
+.report-month-fill {
+    display: block;
+    width: 100%;
+    min-height: 4px;
+    border-radius: 8px 8px 0 0;
+    background: #f59e0b;
+}
+
+.report-month-label {
+    min-height: 34px;
+    color: #475569;
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1.25;
+}
+
+.report-chart-empty {
+    min-height: 180px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 18px;
+    border: 1px dashed #cbd5e1;
+    border-radius: 10px;
+    color: #64748b;
+    font-weight: 700;
+    text-align: center;
+}
+
 @media (max-width: 1100px) {
+    .orders-report-graphs {
+        grid-template-columns: 1fr;
+    }
+
     .orders-report-cards {
         grid-template-columns: repeat(3, 1fr);
     }
@@ -290,6 +451,29 @@
 }
 
 @media (max-width: 700px) {
+    .report-chart-row {
+        grid-template-columns: 30px minmax(0, 1fr) 68px;
+        gap: 8px;
+    }
+
+    .report-chart-track {
+        grid-column: 2 / 4;
+    }
+
+    .report-month-chart {
+        min-height: 230px;
+    }
+
+    .report-month-bar {
+        flex-basis: 66px;
+        min-width: 66px;
+        grid-template-rows: 22px 150px auto;
+    }
+
+    .report-month-track {
+        height: 150px;
+    }
+
     .orders-report-cards {
         grid-template-columns: 1fr;
     }
@@ -307,5 +491,108 @@
 
     .orders-report-toolbar {
         grid-template-columns: 1fr;
+    }
+}
+
+/* Compact report graphs */
+.orders-report-graphs {
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.orders-report-graph-card {
+    padding: 12px;
+}
+
+.orders-report-graph-card .orders-report-section-heading {
+    margin-bottom: 9px;
+}
+
+.orders-report-graph-card .orders-report-section-heading h2 {
+    font-size: 18px;
+}
+
+.orders-report-graph-card .orders-report-section-heading p {
+    font-size: 12px;
+}
+
+.report-bar-chart {
+    gap: 7px;
+    min-height: 150px;
+}
+
+.report-chart-row {
+    grid-template-columns: 28px minmax(120px, 1.2fr) minmax(130px, 2fr) 64px;
+    gap: 8px;
+    min-height: 34px;
+}
+
+.report-chart-rank {
+    width: 23px;
+    height: 23px;
+    font-size: 11px;
+}
+
+.report-chart-label strong {
+    font-size: 13px;
+}
+
+.report-chart-label span {
+    font-size: 11px;
+}
+
+.report-chart-track {
+    height: 10px;
+}
+
+.report-chart-value,
+.report-month-value {
+    font-size: 12px;
+}
+
+.report-month-chart {
+    min-height: 180px;
+    gap: 8px;
+}
+
+.report-month-bar {
+    flex-basis: 58px;
+    min-width: 58px;
+    grid-template-rows: 18px 110px auto;
+    gap: 6px;
+}
+
+.report-month-track {
+    height: 110px;
+}
+
+.report-month-label {
+    min-height: 28px;
+    font-size: 11px;
+}
+
+.report-chart-empty {
+    min-height: 110px;
+    padding: 12px;
+    font-size: 12px;
+}
+
+@media (max-width: 700px) {
+    .report-chart-row {
+        grid-template-columns: 26px minmax(0, 1fr) 58px;
+    }
+
+    .report-month-chart {
+        min-height: 155px;
+    }
+
+    .report-month-bar {
+        flex-basis: 54px;
+        min-width: 54px;
+        grid-template-rows: 18px 86px auto;
+    }
+
+    .report-month-track {
+        height: 86px;
     }
 }

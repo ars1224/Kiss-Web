@@ -64,6 +64,12 @@ try {
         deductOrderStock($pdo, $items, $order, $packedBy);
     }
 
+    $completionSql = $newStatus === 'not_sent'
+        ? ",
+            completed_at = NOW(),
+            status_reason = COALESCE(NULLIF(status_reason, ''), 'All items no stock')"
+        : '';
+
     $stmt = $pdo->prepare("
         UPDATE orders
         SET 
@@ -71,6 +77,7 @@ try {
             checker_name = :checker_name,
             packed_by = :packed_by,
             checked_at = NOW()
+            {$completionSql}
         WHERE id = :id
     ");
 
@@ -289,7 +296,12 @@ function deductOrderStock(PDO $pdo, array $items, array $order, string $packedBy
                 ':delta_qty' => -$actualDeduct,
                 ':before_qty' => $beforeQty,
                 ':after_qty' => $afterQty,
-                ':notes' => 'Order invoice ' . ($order['invoice_no'] ?? '') . ' checked and picked',
+                ':notes' => 'Order deduction | Customer: '
+                    . (trim((string)($order['customer_name'] ?? '')) ?: 'Unknown customer')
+                    . ' | Packing slip: '
+                    . (trim((string)($order['packing_slip'] ?? '')) ?: 'Not provided')
+                    . ' | Invoice: '
+                    . (trim((string)($order['invoice_no'] ?? '')) ?: (string)$orderId),
                 ':actor' => $packedBy
             ]);
 

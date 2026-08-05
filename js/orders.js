@@ -34,7 +34,8 @@ document.getElementById('addLineBtn').addEventListener('click', () => {
     manualLines.push({
         sku_code: sku,
         description: desc,
-        quantity: qty
+        quantity: qty,
+        give_all_available: false
     });
 
     document.getElementById('line_sku').value = '';
@@ -82,11 +83,13 @@ document.getElementById('importOrderBtn').addEventListener('click', async () => 
         document.getElementById('internal_reference').value = header.internal_reference || '';
         document.getElementById('purchase_number').value = header.purchase_number || '';
         document.getElementById('sales_person').value = header.sales_person || '';
+        document.getElementById('order_comments').value = header.order_comments || '';
 
         manualLines = lines.map(line => ({
             sku_code: String(line.sku_code || '').trim(),
             description: String(line.description || '').trim(),
-            quantity: parseFloat(line.quantity || 0)
+            quantity: parseFloat(line.quantity || 0),
+            give_all_available: isTruthyFlag(line.give_all_available)
         })).filter(line => line.sku_code && line.quantity > 0);
 
         renderManualLines();
@@ -224,7 +227,7 @@ function renderManualLines() {
     if (manualLines.length === 0) {
         manualLinesBody.innerHTML = `
             <tr class="empty-row">
-                <td colspan="4">No order lines added yet.</td>
+                <td colspan="5">No order lines added yet.</td>
             </tr>
         `;
         return;
@@ -259,6 +262,16 @@ function renderManualLines() {
                     onchange="updateManualQty(${index}, this.value)"
                 >
             </td>
+            <td data-label="Give All">
+                <label class="manual-give-all">
+                    <input
+                        type="checkbox"
+                        ${line.give_all_available ? 'checked' : ''}
+                        onchange="updateManualGiveAll(${index}, this.checked)"
+                    >
+                    <span>All stock</span>
+                </label>
+            </td>
             <td data-label="Action">
                 <button type="button" class="btn btn-danger" onclick="removeManualLine(${index})">Remove</button>
             </td>
@@ -292,6 +305,7 @@ function collectOrderData() {
             internal_reference: document.getElementById('internal_reference').value.trim(),
             purchase_number: document.getElementById('purchase_number').value.trim(),
             sales_person: document.getElementById('sales_person').value.trim(),
+            order_comments: document.getElementById('order_comments').value.trim(),
             rounding_mode: document.getElementById('rounding_mode').value,
             min_shelf_life_months: document.getElementById('min_shelf_life_months').value
         },
@@ -530,6 +544,18 @@ async function loadOrderForEdit(id) {
 
         const order = result.order || {};
         const items = result.items || [];
+        const isReopened = new URLSearchParams(window.location.search).get('reopened') === '1';
+
+        if (!['pending', 'ongoing'].includes(order.status || 'pending')) {
+            alert('This order must be reopened before items can be added or changed.');
+            window.location.href = `order_view.php?id=${encodeURIComponent(id)}`;
+            return;
+        }
+
+        const formTitle = document.getElementById('orderFormTitle');
+        if (formTitle) {
+            formTitle.textContent = isReopened ? 'Add Items to Reopened Order' : 'Edit Order';
+        }
 
         document.getElementById('invoice_no').value = order.invoice_no || '';
         document.getElementById('order_date').value = order.order_date || '';
@@ -542,6 +568,7 @@ async function loadOrderForEdit(id) {
         document.getElementById('internal_reference').value = order.internal_reference || '';
         document.getElementById('purchase_number').value = order.purchase_number || '';
         document.getElementById('sales_person').value = order.sales_person || '';
+        document.getElementById('order_comments').value = order.order_comments || '';
         document.getElementById('rounding_mode').value = String(order.rounding_mode ?? '1');
         document.getElementById('min_shelf_life_months').value =
             String(order.min_shelf_life_months ?? '6');
@@ -550,23 +577,28 @@ async function loadOrderForEdit(id) {
             String(item.picked_done || '') !== '1'
         );
 
-        if (editableItems.length === 0) {
-            alert('No editable lines left. All lines are already done.');
-            window.location.href = 'orders_list.php';
-            return;
-        }
-
         manualLines = editableItems.map(item => ({
             sku_code: String(item.sku_code || '').trim(),
             description: String(item.description || '').trim(),
-            quantity: Number(item.total_qty || item.order_qty || 0)
+            quantity: Number(item.total_qty || item.order_qty || 0),
+            give_all_available: isTruthyFlag(item.give_all_available)
         })).filter(line => line.sku_code && line.quantity > 0);
 
         renderManualLines();
         renderPreview([]);
         hidePreview();
 
-        showSuccessMessage('Order loaded for editing.');
+        if (editableItems.length === 0) {
+            showSuccessMessage(
+                'Existing completed items are protected. Add the new item or items below, then save the order.'
+            );
+        } else {
+            showSuccessMessage(
+                isReopened
+                    ? 'Order reopened. Review unfinished lines and add the new item or items below.'
+                    : 'Order loaded for editing.'
+            );
+        }
     } catch (error) {
         console.error(error);
         alert('Edit load failed. Check console.');
@@ -661,6 +693,14 @@ function updateManualQty(index, value) {
 
 window.updateManualQty = updateManualQty;
 
+function updateManualGiveAll(index, checked) {
+    if (!manualLines[index]) return;
+
+    manualLines[index].give_all_available = Boolean(checked);
+}
+
+window.updateManualGiveAll = updateManualGiveAll;
+
 function updateManualLine(index, field, value) {
     if (!manualLines[index]) return;
 
@@ -668,3 +708,11 @@ function updateManualLine(index, field, value) {
 }
 
 window.updateManualLine = updateManualLine;
+
+function isTruthyFlag(value) {
+    if (value === true || value === 1 || value === '1') {
+        return true;
+    }
+
+    return String(value).trim().toLowerCase() === 'true';
+}

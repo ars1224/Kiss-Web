@@ -86,6 +86,7 @@ if ($filters['free'] !== '') {
     'OldLocation',
     'NewLocation',
     'BatchNo',
+    'Notes',
     'Comments',
     'Actor'
   ];
@@ -102,8 +103,25 @@ if ($filters['free'] !== '') {
 }
 
 if ($filters['action'] !== '') {
-  $where[] = "Action = :action";
-  $params['action'] = $filters['action'];
+  $action = strtolower($filters['action']);
+  $actionAliases = [
+    'update' => ['update', 'edit'],
+    'delete' => ['delete', 'delete-zero', 'qty-auto-delete'],
+  ];
+  if ($action === 'other') {
+    $where[] = "LOWER(Action) NOT IN ('create','add','deduct','move','move-merge','update','edit','adjust','delete','delete-zero','qty-auto-delete','import')";
+  } elseif (isset($actionAliases[$action])) {
+    $actionParts = [];
+    foreach ($actionAliases[$action] as $i => $alias) {
+      $ph = "action{$i}";
+      $actionParts[] = "LOWER(Action) = :$ph";
+      $params[$ph] = $alias;
+    }
+    $where[] = '(' . implode(' OR ', $actionParts) . ')';
+  } else {
+    $where[] = "LOWER(Action) = :action";
+    $params['action'] = $action;
+  }
 }
 
 if ($filters['sku'] !== '') {
@@ -129,8 +147,9 @@ if ($filters['actor'] !== '') {
 }
 
 if ($filters['comments'] !== '') {
-  $where[] = "Comments LIKE :comments";
+  $where[] = "(Comments LIKE :comments OR Notes LIKE :notes)";
   $params['comments'] = '%' . $filters['comments'] . '%';
+  $params['notes'] = '%' . $filters['comments'] . '%';
 }
 
 if ($filters['from'] !== '') {
@@ -163,7 +182,9 @@ $totalRows = count($rows);
 $counts = [
   'create' => 0,
   'add'    => 0,
+  'deduct' => 0,
   'move'   => 0,
+  'move-merge' => 0,
   'update' => 0,
   'delete' => 0,
   'adjust' => 0,
@@ -174,11 +195,7 @@ $counts = [
 $qtyNet = 0;
 
 foreach ($rows as $r) {
-  $a = strtolower((string)($r['Action'] ?? ''));
-
-  if (!isset($counts[$a])) {
-    $a = 'other';
-  }
+  $a = action_group((string)($r['Action'] ?? ''));
 
   $counts[$a]++;
   $qtyNet += (int)($r['DeltaQty'] ?? 0);
@@ -187,13 +204,30 @@ foreach ($rows as $r) {
 // -------------------------
 // UI helpers
 // -------------------------
+function action_group(string $action): string {
+  return match (strtolower(trim($action))) {
+    'create' => 'create',
+    'add' => 'add',
+    'deduct' => 'deduct',
+    'move' => 'move',
+    'move-merge' => 'move-merge',
+    'update', 'edit' => 'update',
+    'adjust' => 'adjust',
+    'delete', 'delete-zero', 'qty-auto-delete' => 'delete',
+    'import' => 'import',
+    default => 'other',
+  };
+}
+
 function badge_class(string $action): string {
-  $a = strtolower($action);
+  $a = action_group($action);
 
   return match ($a) {
     'create' => 'bg-success',
     'add'    => 'bg-success',
+    'deduct' => 'bg-warning text-dark',
     'move'   => 'bg-primary',
+    'move-merge' => 'bg-primary',
     'update' => 'bg-warning text-dark',
     'adjust' => 'bg-warning text-dark',
     'delete' => 'bg-danger',

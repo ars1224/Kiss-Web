@@ -16,7 +16,7 @@
 
     <div class="card orders-form-card">
            <div>
-                <h1>Create Orders</h1>
+                <h1 id="orderFormTitle">Create Orders</h1>
             </div>
             
         <form id="ordersForm">
@@ -91,6 +91,11 @@
                         <option value="18">18+ months before expiry</option>
                     </select>
                 </div>
+
+                <div class='form-group full-width'>
+                    <label for='order_comments'>Order Comments</label>
+                    <textarea id='order_comments' name='order_comments' rows='3'></textarea>
+                </div>
             </div>
 
             <hr class="section-divider">
@@ -129,12 +134,13 @@
                             <th>SKU</th>
                             <th>Description</th>
                             <th>Requested Qty</th>
+                            <th>Give All</th>
                             <th>Action</th>
                         </tr>
                     </thead>
                     <tbody id="manualLinesBody">
                         <tr class="empty-row">
-                            <td colspan="4">No order lines added yet.</td>
+                            <td colspan="5">No order lines added yet.</td>
                         </tr>
                     </tbody>
                 </table>

@@ -96,6 +96,24 @@ try {
         $repo->beginTransaction();
 
         if ($orderIdForEdit > 0) {
+            $stmt = $pdo->prepare("
+                SELECT status
+                FROM orders
+                WHERE id = :id
+                LIMIT 1
+                FOR UPDATE
+            ");
+            $stmt->execute([':id' => $orderIdForEdit]);
+            $orderForEdit = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$orderForEdit) {
+                throw new Exception('Order not found.');
+            }
+
+            if (!in_array((string)$orderForEdit['status'], ['pending', 'ongoing'], true)) {
+                throw new Exception('This order must be reopened before items can be added or changed.');
+            }
+
             $repo->updateOrder($orderIdForEdit, $header);
             $repo->deleteEditableOrderItems($orderIdForEdit);
             $orderId = $orderIdForEdit;
@@ -145,6 +163,7 @@ function buildPickingListRows(
         $description = $group['description'];
         $orderQtyParts = $group['order_qty_parts'];
         $requestedQty = (float)$group['requested_qty'];
+        $giveAllAvailable = !empty($group['give_all_available']);
 
         $stockRows = $repo->getAvailableStockBySku($sku);
         $customerName = trim((string)($header['customer_name'] ?? ''));
@@ -203,7 +222,9 @@ function buildPickingListRows(
         } else {
             $resolvedUnitsPerCtn = getResolvedUnitsPerCtn($stockRows);
 
-            if ($roundingEnabled && $resolvedUnitsPerCtn > 0) {
+            if ($giveAllAvailable) {
+                $displayQtySupplied = getTotalAvailableQty($stockRows);
+            } elseif ($roundingEnabled && $resolvedUnitsPerCtn > 0) {
                 $displayQtySupplied = roundCartonRemainderUp(
                     $requestedQty,
                     $resolvedUnitsPerCtn
@@ -228,7 +249,10 @@ function buildPickingListRows(
                     $qtyPerCtn = $resolvedUnitsPerCtn;
                 }
 
-                if ($roundingEnabled) {
+                if ($giveAllAvailable) {
+                    $take = $availableQty;
+                    $fullCtn = $qtyPerCtn > 0 ? (int) floor($take / $qtyPerCtn) : 0;
+                } elseif ($roundingEnabled) {
                     if ($qtyPerCtn <= 0) {
                         continue;
                     }
@@ -247,6 +271,10 @@ function buildPickingListRows(
                 } else {
                     $take = min($remainingForDisplay, $availableQty);
                     $fullCtn = $qtyPerCtn > 0 ? (int) floor($take / $qtyPerCtn) : 0;
+                }
+
+                if ($take <= 0) {
+                    continue;
                 }
 
                 $batchNo = trim((string)($stock['BatchNo'] ?? ''));
@@ -269,7 +297,8 @@ function buildPickingListRows(
             // a part carton if there are no full cartons on the line. Do not
             // add a remainder after full cartons.
             if (
-                $roundingEnabled
+                !$giveAllAvailable
+                && $roundingEnabled
                 && empty($qtySuppliedLines)
                 && $remainingForDisplay > 0
                 && $remainingForDisplay < ($resolvedUnitsPerCtn / 2)
@@ -311,7 +340,8 @@ function buildPickingListRows(
             }
 
             if (
-                $roundingEnabled
+                !$giveAllAvailable
+                && $roundingEnabled
                 && empty($qtySuppliedLines)
                 && $remainingForDisplay > 0
             ) {
@@ -363,6 +393,7 @@ function buildPickingListRows(
 
             'quantity_lines' => array_map('formatNumber', $orderQtyParts),
             'quantity' => implode(' | ', array_map('formatNumber', $orderQtyParts)),
+            'give_all_available' => $giveAllAvailable ? 1 : 0,
             'total_qty' => formatNumber($displayTotalQty),
 
             'batch_expiry_lines' => $batchLines,
@@ -518,6 +549,20 @@ function getResolvedUnitsPerCtn(array $stockRows): float
     return 0.0;
 }
 
+function getTotalAvailableQty(array $stockRows): float
+{
+    $total = 0.0;
+
+    foreach ($stockRows as $stock) {
+        $availableQty = (float)($stock['TotalQty'] ?? 0);
+        if ($availableQty > 0) {
+            $total += $availableQty;
+        }
+    }
+
+    return $total;
+}
+
 function roundCartonRemainderUp(float $requestedQty, float $qtyPerCtn): float
 {
     if ($requestedQty <= 0 || $qtyPerCtn <= 0) {
@@ -548,6 +593,7 @@ function groupImportedLines(array $lines): array
         $sku = trim((string)($line['sku_code'] ?? ''));
         $description = trim((string)($line['description'] ?? ''));
         $qty = (float)($line['quantity'] ?? 0);
+        $giveAllAvailable = isTruthyFlag($line['give_all_available'] ?? false);
 
         if ($sku === '' || $qty <= 0) {
             continue;
@@ -560,8 +606,13 @@ function groupImportedLines(array $lines): array
                 'sku_code' => $sku,
                 'description' => $description,
                 'requested_qty' => 0.0,
-                'order_qty_parts' => []
+                'order_qty_parts' => [],
+                'give_all_available' => false
             ];
+        }
+
+        if ($giveAllAvailable) {
+            $grouped[$key]['give_all_available'] = true;
         }
 
         $grouped[$key]['requested_qty'] += $qty;
@@ -569,6 +620,15 @@ function groupImportedLines(array $lines): array
     }
 
     return array_values($grouped);
+}
+
+function isTruthyFlag(mixed $value): bool
+{
+    if ($value === true || $value === 1 || $value === '1') {
+        return true;
+    }
+
+    return strtolower(trim((string)$value)) === 'true';
 }
 
 function padLines(array $lines, int $targetCount): array

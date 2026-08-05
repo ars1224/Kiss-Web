@@ -72,6 +72,7 @@ try {
           AND SKU_Code   = ?
           AND (BatchNo <=> ?)
           AND (ExpiryDate <=> ?)
+          AND (UnitType <=> ?)
           AND QtyPerCtn  = ?
           AND EntryID   <> ?
         LIMIT 1
@@ -120,18 +121,19 @@ try {
         $affectedSkus[$sku] = true;
 
         // Look for merge target in new location
-        $selMerge->execute([$newLoc, $sku, $batch, $exp, $qpc, $id]);
+        $selMerge->execute([$newLoc, $sku, $batch, $exp, $row['UnitType'], $qpc, $id]);
         $target = $selMerge->fetch(PDO::FETCH_ASSOC);
 
         if ($target) {
             // Merge
+            $targetQty = (int)$target['TotalQty'];
             $updQty->execute([$qty, (int)$target['EntryID']]);
             $delRow->execute([$id]);
 
             try {
                 tx_log([
                     'InventoryType' => $inventoryType,
-                    'EntryID'         => $id,
+                    'EntryID'         => (int)$target['EntryID'],
                     'Action'          => 'move-merge',
                     'OldLocation'     => $oldLoc,
                     'NewLocation'     => $newLoc,
@@ -140,9 +142,10 @@ try {
                     'ExpiryDate'      => $exp,
                     'UnitType'        => $row['UnitType'],
                     'QtyPerCtn'       => $qpc,
-                    'DeltaQty'        => -$qty,
-                    'TotalQty_Before' => $qty,
-                    'TotalQty_After'  => 0,
+                    'DeltaQty'        => 0,
+                    'TotalQty_Before' => $targetQty,
+                    'TotalQty_After'  => $targetQty + $qty,
+                    'Comments'        => 'Merged ' . $qty . ' from EntryID ' . $id,
                 ]);
             } catch (Throwable $logErr) {
                 error_log('tx_log(move-merge) failed: ' . $logErr->getMessage());

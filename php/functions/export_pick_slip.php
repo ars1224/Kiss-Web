@@ -97,14 +97,15 @@ $sheet->setCellValue('G6', $order['sales_person'] ?? '');
 | Table
 |--------------------------------------------------------------------------
 */
+$orderComments = trim((string)($order['order_comments'] ?? ''));
 $startRow = 7;
 
 $headers = [
     'Code',
     'BATCH EXPIRY',
     'Description',
-    'Quantity',
-    'TOTAL',
+    'Qty Ordered',
+    'TOTAL Qty Ordered',
     'QTY SUPPLIED',
     'UNITS/CTN',
     'NO. FULL CTN',
@@ -141,7 +142,7 @@ foreach ($items as $item) {
     $sheet->setCellValue("A{$row}", $item['sku_code'] ?? '');
     $sheet->setCellValue("B{$row}", richNoStock($batchNo));
     $sheet->setCellValue("C{$row}", $item['description'] ?? '');
-    $sheet->setCellValue("D{$row}", $item['order_qty'] ?? '');
+    $sheet->setCellValue("D{$row}", multiline((string)($item['order_qty'] ?? '')));
     $sheet->setCellValue("E{$row}", $item['total_qty'] ?? '');
     $sheet->setCellValue("F{$row}", richNoStock((string)($item['qty_supplied'] ?? '')));
     $sheet->setCellValue("G{$row}", richNoStock($unitsPerCtn));
@@ -163,6 +164,7 @@ foreach ($items as $item) {
 
     $lineCount = max(
         count(splitPipeLines($batchNo)),
+        count(splitPipeLines((string)($item['order_qty'] ?? ''))),
         count(splitPipeLines($location)),
         count(splitPipeLines($comment)),
         count(splitPipeLines($unitsPerCtn)),
@@ -179,16 +181,13 @@ foreach ($items as $item) {
             stripos($unitsPerCtn, 'NO STOCK') !== false ||
             stripos($comment, 'NO STOCK') !== false;
 
-    $orderQty = toNumber($item['order_qty'] ?? '');
     $totalQty = toNumber($item['total_qty'] ?? '');
     $qtySupplied = toNumber($item['qty_supplied'] ?? '');
 
     $isQtyMismatch =
         $qtySupplied !== null &&
-        (
-            ($orderQty !== null && abs($qtySupplied - $orderQty) > 0.0001) ||
-            ($totalQty !== null && abs($qtySupplied - $totalQty) > 0.0001)
-        );
+        $totalQty !== null &&
+        abs($qtySupplied - $totalQty) > 0.0001;
 
     if ($isNoStock || $isQtyMismatch) {
         $sheet->getStyle("D{$row}:F{$row}")
@@ -207,6 +206,9 @@ $sheet->getStyle("A{$startRow}:K{$lastTableRow}")
     ->getBorders()
     ->getAllBorders()
     ->setBorderStyle(Border::BORDER_THIN);
+$sheet->getStyle("A" . ($startRow + 1) . ":L{$lastTableRow}")
+    ->getFont()
+    ->setSize(10);
 
 /*
 |--------------------------------------------------------------------------
@@ -214,6 +216,18 @@ $sheet->getStyle("A{$startRow}:K{$lastTableRow}")
 |--------------------------------------------------------------------------
 */
 $footerRow = $lastTableRow + 2;
+
+if ($orderComments !== '') {
+    $commentsRow = $footerRow;
+    $sheet->setCellValue("A{$commentsRow}", 'Comments');
+    $sheet->mergeCells("B{$commentsRow}:K{$commentsRow}");
+    $sheet->setCellValue("B{$commentsRow}", $orderComments);
+    $sheet->getStyle("A{$commentsRow}:K{$commentsRow}")->getFont()->setBold(true);
+    $sheet->getStyle("A{$commentsRow}:K{$commentsRow}")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFF00');
+    $sheet->getStyle("B{$commentsRow}:K{$commentsRow}")->getAlignment()->setWrapText(true)->setVertical(Alignment::VERTICAL_CENTER);
+    $sheet->getRowDimension($commentsRow)->setRowHeight(max(24, count(preg_split('/\R/', $orderComments)) * 18));
+    $footerRow += 2;
+}
 
 $sheet->setCellValue("A{$footerRow}", 'Checked by:');
 $sheet->setCellValue(
@@ -290,6 +304,8 @@ function mergePickSlipItems(array $items): array
         if (!isset($merged[$key])) {
             $merged[$key] = $item;
             $merged[$key]['_order_qty'] = 0.0;
+            $merged[$key]['_order_qty_lines'] = [];
+            $merged[$key]['_order_qty_total'] = 0.0;
             $merged[$key]['_total_qty'] = 0.0;
             $merged[$key]['_qty_supplied'] = 0.0;
             $merged[$key]['_has_qty_supplied'] = false;
@@ -304,7 +320,13 @@ function mergePickSlipItems(array $items): array
             $order[] = $key;
         }
 
+        $orderQtyLines = splitPipeLines((string)($item['order_qty'] ?? ''));
         $orderQty = toNumber($item['order_qty'] ?? '');
+
+        foreach ($orderQtyLines as $orderQtyLine) {
+            $lineQty = toNumber($orderQtyLine);
+            if ($lineQty !== null) { $merged[$key]['_order_qty_total'] += $lineQty; }
+        }
         $totalQty = toNumber($item['total_qty'] ?? '');
         $suppliedQty = toNumber(($item['total_qty_supplied'] ?? '') ?: ($item['qty_supplied'] ?? ''));
 
@@ -327,6 +349,7 @@ function mergePickSlipItems(array $items): array
         }
 
         appendPipeLines($merged[$key]['_batch_lines'], (string)($item['batch_no'] ?? ''));
+        appendPipeLines($merged[$key]['_order_qty_lines'], (string)($item['order_qty'] ?? ''));
         appendPipeLines($merged[$key]['_unit_lines'], (string)($item['units_per_ctn'] ?? ''));
         appendPipeLines($merged[$key]['_full_ctn_lines'], (string)($item['full_ctn'] ?? ''));
         appendPipeLines($merged[$key]['_location_lines'], (string)($item['location'] ?? ''));
@@ -352,13 +375,13 @@ function mergePickSlipItems(array $items): array
     foreach ($order as $key) {
         $item = $merged[$key];
 
-        $item['order_qty'] = $item['_order_qty'] > 0
-            ? formatPickSlipNumber($item['_order_qty'])
+        $item['order_qty'] = !empty($item['_order_qty_lines'])
+            ? implode(' | ', $item['_order_qty_lines'])
             : (string)($item['order_qty'] ?? '');
 
-        $item['total_qty'] = $item['_total_qty'] > 0
-            ? formatPickSlipNumber($item['_total_qty'])
-            : (string)($item['total_qty'] ?? '');
+        $item['total_qty'] = $item['_order_qty_total'] > 0
+            ? formatPickSlipNumber($item['_order_qty_total'])
+            : ($item['_total_qty'] > 0 ? formatPickSlipNumber($item['_total_qty']) : (string)($item['total_qty'] ?? ''));
 
         if ($item['_has_qty_supplied']) {
             $item['qty_supplied'] = formatPickSlipNumber($item['_qty_supplied']);
@@ -385,6 +408,8 @@ function mergePickSlipItems(array $items): array
 
         unset(
             $item['_order_qty'],
+            $item['_order_qty_lines'],
+            $item['_order_qty_total'],
             $item['_total_qty'],
             $item['_qty_supplied'],
             $item['_has_qty_supplied'],

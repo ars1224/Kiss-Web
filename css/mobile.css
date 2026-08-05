@@ -1418,7 +1418,8 @@ body.app-shell > .main-content {
     }
 
     .order-meta-item,
-    .order-address-block {
+    .order-address-block,
+    .order-comments-block {
         padding: 9px 10px;
         border-radius: 10px;
     }

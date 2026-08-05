@@ -4,8 +4,15 @@ declare(strict_types=1);
 require_once __DIR__ . '/../auth/session.php';
 
 if (!isLoggedIn()) {
-    http_response_code(401);
-    exit('Authentication required');
+    $accept = strtolower($_SERVER['HTTP_ACCEPT'] ?? '');
+    $requestedWith = strtolower($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '');
+
+    if ($requestedWith === 'xmlhttprequest' || str_contains($accept, 'application/json')) {
+        http_response_code(401);
+        exit('Authentication required');
+    }
+
+    requireLogin();
 }
 
 /**

@@ -83,13 +83,19 @@ try {
         END
     ";
 
+    $finalStatusExpr = "LOWER(TRIM(COALESCE(status, '')))";
+    $orderFinalStatusExpr = "LOWER(TRIM(COALESCE(o.status, '')))";
+    $reportDateExpr = "CASE WHEN {$finalStatusExpr} IN ('not_sent', 'not sent') THEN COALESCE(completed_at, checked_at, order_date) ELSE completed_at END";
+    $orderReportDateExpr = "CASE WHEN {$orderFinalStatusExpr} IN ('not_sent', 'not sent') THEN COALESCE(o.completed_at, o.checked_at, o.order_date) ELSE o.completed_at END";
+
     $summarySql = "
         SELECT
             COUNT(*) AS total_orders,
-            SUM(CASE WHEN LOWER(status) = 'sent' THEN 1 ELSE 0 END) AS sent_orders,
-            SUM(CASE WHEN LOWER(status) != 'sent' THEN 1 ELSE 0 END) AS not_sent_orders
+            SUM(CASE WHEN {$finalStatusExpr} = 'sent' THEN 1 ELSE 0 END) AS sent_orders,
+            SUM(CASE WHEN {$finalStatusExpr} IN ('not_sent', 'not sent') THEN 1 ELSE 0 END) AS not_sent_orders
         FROM orders
-        WHERE DATE(completed_at) BETWEEN :from_date AND :to_date
+        WHERE {$finalStatusExpr} IN ('sent', 'not_sent', 'not sent')
+        AND DATE({$reportDateExpr}) BETWEEN :from_date AND :to_date
     ";
 
     $summaryStmt = $pdo->prepare($summarySql);
@@ -113,7 +119,9 @@ try {
                 SUM({$suppliedQtyExpr}) AS qty_supplied
             FROM order_items oi
             INNER JOIN orders o ON oi.order_id = o.id
-            WHERE DATE(o.completed_at) BETWEEN :from_date AND :to_date
+            WHERE DATE({$orderReportDateExpr}) BETWEEN :from_date AND :to_date
+            AND {$orderReportDateExpr} IS NOT NULL
+            AND {$orderFinalStatusExpr} IN ('sent', 'not_sent', 'not sent')
             GROUP BY o.id, oi.sku_code, oi.description
         ) grouped
     ";
@@ -144,7 +152,7 @@ try {
             SELECT
                 o.id AS order_id,
                 o.invoice_no,
-                o.completed_at,
+                {$orderReportDateExpr} AS completed_at,
                 o.customer_name,
                 oi.sku_code,
                 oi.description,
@@ -153,10 +161,10 @@ try {
                 NULLIF(GROUP_CONCAT(DISTINCT NULLIF(TRIM(COALESCE(oi.not_supplied_reason, '')), '') SEPARATOR ', '), '') AS not_supplied_reasons
             FROM order_items oi
             INNER JOIN orders o ON oi.order_id = o.id
-            WHERE DATE(o.completed_at) BETWEEN :from_date AND :to_date
-            AND o.completed_at IS NOT NULL
-            AND LOWER(o.status) = 'sent'
-            GROUP BY o.id, o.invoice_no, o.completed_at, o.customer_name, oi.sku_code, oi.description
+            WHERE DATE({$orderReportDateExpr}) BETWEEN :from_date AND :to_date
+            AND {$orderReportDateExpr} IS NOT NULL
+            AND {$orderFinalStatusExpr} IN ('sent', 'not_sent', 'not sent')
+            GROUP BY o.id, o.invoice_no, {$orderReportDateExpr}, o.customer_name, oi.sku_code, oi.description
         ) grouped
         WHERE grouped.qty_ordered > grouped.qty_supplied
         ORDER BY grouped.completed_at DESC, grouped.invoice_no ASC, grouped.sku_code ASC
@@ -169,6 +177,28 @@ try {
     ]);
     $notSupplied = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+    $finalNotSentSql = "
+        SELECT
+            id,
+            invoice_no,
+            customer_name,
+            order_date,
+            delivery_date,
+            status_reason,
+            {$reportDateExpr} AS report_date
+        FROM orders
+        WHERE {$finalStatusExpr} IN ('not_sent', 'not sent')
+        AND DATE({$reportDateExpr}) BETWEEN :from_date AND :to_date
+        ORDER BY report_date DESC, invoice_no ASC
+    ";
+
+    $stmt = $pdo->prepare($finalNotSentSql);
+    $stmt->execute([
+        ':from_date' => $fromDate,
+        ':to_date' => $toDate
+    ]);
+    $finalNotSent = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
     $notSentSql = "
         SELECT
             id,
@@ -179,16 +209,13 @@ try {
             status,
             status_reason
         FROM orders
-        WHERE DATE(order_date) BETWEEN :from_date AND :to_date
-        AND (status IS NULL OR TRIM(LOWER(status)) != 'sent')
+        WHERE status IS NULL
+           OR TRIM(LOWER(status)) NOT IN ('sent', 'not_sent', 'not sent')
         ORDER BY order_date DESC, invoice_no ASC
     ";
 
     $stmt = $pdo->prepare($notSentSql);
-    $stmt->execute([
-        ':from_date' => $fromDate,
-        ':to_date' => $toDate
-    ]);
+    $stmt->execute();
     $notSent = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     $notSentItemsSql = "
@@ -203,17 +230,14 @@ try {
         WHERE order_id IN (
             SELECT id
             FROM orders
-            WHERE DATE(order_date) BETWEEN :from_date AND :to_date
-            AND (status IS NULL OR TRIM(LOWER(status)) != 'sent')
+            WHERE status IS NULL
+               OR TRIM(LOWER(status)) NOT IN ('sent', 'not_sent', 'not sent')
         )
         ORDER BY order_id ASC, sku_code ASC
     ";
 
     $stmt = $pdo->prepare($notSentItemsSql);
-    $stmt->execute([
-        ':from_date' => $fromDate,
-        ':to_date' => $toDate
-    ]);
+    $stmt->execute();
     $itemsRaw = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     $notSentItems = [];
@@ -221,6 +245,38 @@ try {
     foreach ($itemsRaw as $item) {
         $notSentItems[(int)$item['order_id']][] = $item;
     }
+
+    $finalNotSentRows = '';
+
+    foreach ($finalNotSent as $row) {
+        $finalNotSentRows .= '
+            <tr>
+                <td width="10%">' . h($row['invoice_no']) . '</td>
+                <td width="13%">' . pdfDate($row['report_date']) . '</td>
+                <td width="22%">' . h($row['customer_name']) . '</td>
+                <td width="12%">' . h($row['order_date']) . '</td>
+                <td width="12%">' . h($row['delivery_date'] ?? '') . '</td>
+                <td width="31%">' . h($row['status_reason'] ?? 'No reason added') . '</td>
+            </tr>
+        ';
+    }
+
+    $finalNotSentSection = $finalNotSentRows !== ''
+        ? '<h2>Not Sent Orders</h2>
+            <table cellpadding="6" cellspacing="0">
+                <thead>
+                    <tr>
+                        <th width="10%">Invoice</th>
+                        <th width="13%">Report Date</th>
+                        <th width="22%">Customer</th>
+                        <th width="12%">Order Date</th>
+                        <th width="12%">Delivery Date</th>
+                        <th width="31%">Reason</th>
+                    </tr>
+                </thead>
+                <tbody>' . $finalNotSentRows . '</tbody>
+            </table>'
+        : '';
 
     $notSuppliedRows = '';
 
@@ -246,9 +302,7 @@ try {
 
     $notSentHtml = '';
 
-    if (!$notSent) {
-        $notSentHtml = '<p class="empty-box">No orders still not sent for this date range.</p>';
-    } else {
+    if ($notSent) {
         foreach ($notSent as $order) {
             $orderId = (int)$order['id'];
             $itemRows = '';
@@ -304,6 +358,10 @@ try {
         }
     }
 
+    $notSentSection = $notSentHtml !== ''
+        ? '<h2>Orders Still Not Sent (Pending)</h2>' . $notSentHtml
+        : '';
+
     $html = '
         <style>
             body { color: #0f172a; font-family: helvetica, sans-serif; }
@@ -337,12 +395,14 @@ try {
             <tr>
                 <td width="16.66%"><div class="label">Total Orders</div><div class="value">' . pdfQty($summary['total_orders'] ?? 0) . '</div></td>
                 <td width="16.66%"><div class="label">Sent</div><div class="value">' . pdfQty($summary['sent_orders'] ?? 0) . '</div></td>
-                <td width="16.66%"><div class="label">Not Sent</div><div class="value">' . pdfQty(count($notSent)) . '</div></td>
+                <td width="16.66%"><div class="label">Not Sent</div><div class="value">' . pdfQty($summary['not_sent_orders'] ?? 0) . '</div></td>
                 <td width="16.66%"><div class="label">Qty Ordered</div><div class="value">' . pdfQty($qty['total_qty_ordered'] ?? 0) . '</div></td>
                 <td width="16.66%"><div class="label">Qty Supplied</div><div class="value">' . pdfQty($qty['total_qty_supplied'] ?? 0) . '</div></td>
                 <td width="16.7%"><div class="label">Qty Not Supplied</div><div class="value">' . pdfQty($qty['total_qty_not_supplied'] ?? 0) . '</div></td>
             </tr>
         </table>
+
+        ' . $finalNotSentSection . '
 
         <h2>Products Not Supplied</h2>
         <table cellpadding="6" cellspacing="0">
@@ -362,8 +422,7 @@ try {
             <tbody>' . $notSuppliedRows . '</tbody>
         </table>
 
-        <h2>Orders Still Not Sent</h2>
-        ' . $notSentHtml . '
+        ' . $notSentSection . '
     ';
 
     $pdf = new TCPDF('L', 'mm', 'A4', true, 'UTF-8', false);

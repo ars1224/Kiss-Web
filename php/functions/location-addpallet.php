@@ -28,11 +28,35 @@ if ($table === 'all') {
 }
 
 function redirect_with_error(string $msg): void {
-    $q  = get_param_string('q', '');
-    $params = ['error' => $msg];
-    if ($q !== '') $params['q'] = $q;
+    $fieldMap = [
+        'EntryCode6', 'Location', 'SKU_Code', 'BatchNo', 'ExpiryDate',
+        'UnitType', 'QtyPerCtn', 'TotalQty', 'Comments', 'DateAdded'
+    ];
+    $postedFields = [];
+    $draftRowCount = 0;
+
+    foreach ($fieldMap as $field) {
+        $values = $_POST[$field] ?? [];
+        $postedFields[$field] = is_array($values) ? $values : [$values];
+        $draftRowCount = max($draftRowCount, count($postedFields[$field]));
+    }
+
+    $draftRows = [];
+    for ($i = 0; $i < $draftRowCount; $i++) {
+        $row = [];
+        foreach ($fieldMap as $field) {
+            $row[$field] = (string)($postedFields[$field][$i] ?? '');
+        }
+        $draftRows[] = $row;
+    }
+
+    $_SESSION['add_pallet_form_rows'] = $draftRows;
+    $_SESSION['form_error'] = $msg . ' Your entered data has been kept.';
+    $params = ['restoreDraft' => '1'];
+    $inventory = get_param_string('inventory', '');
+    if ($inventory !== '') $params['inventory'] = $inventory;
     $qs = http_build_query($params);
-    header('Location: ../../Location.php' . ($qs ? ('?' . $qs) : ''));
+    header('Location: ../../addPalletLocation.php' . ($qs ? ('?' . $qs) : ''));
     exit;
 }
 
@@ -71,24 +95,38 @@ function trigger_silent_print_labels(array $ids, string $inventoryType): void {
         $cookieHeader = "Cookie: " . session_name() . "=" . session_id() . "\r\n";
     }
 
-    $ctx = stream_context_create([
-        'http' => [
-            'method'  => 'POST',
-            'header'  =>
-                "Content-Type: application/x-www-form-urlencoded\r\n" .
-                $cookieHeader .
-                "Connection: close\r\n",
-            'content' => $post,
-            'timeout' => 10,
-        ]
-    ]);
+    $urlParts = parse_url($url);
+    $socketHost = (string)($urlParts['host'] ?? '127.0.0.1');
+    $socketPath = (string)($urlParts['path'] ?? '/');
+    $isHttps = strtolower((string)($urlParts['scheme'] ?? 'http')) === 'https';
+    $socketPort = (int)($urlParts['port'] ?? ($isHttps ? 443 : 80));
+    $socketTarget = ($isHttps ? 'ssl://' : '') . $socketHost;
 
-    $result = @file_get_contents($url, false, $ctx);
+    $socket = @fsockopen($socketTarget, $socketPort, $errorCode, $errorMessage, 1.0);
 
-    error_log('Silent print URL: ' . $url);
+    if ($socket === false) {
+        error_log(
+            "Silent print queue failed ({$errorCode}): {$errorMessage}; URL: {$url}"
+        );
+        return;
+    }
+
+    $request =
+        "POST {$socketPath} HTTP/1.1\r\n" .
+        "Host: {$host}\r\n" .
+        "Content-Type: application/x-www-form-urlencoded\r\n" .
+        $cookieHeader .
+        "Content-Length: " . strlen($post) . "\r\n" .
+        "Connection: close\r\n\r\n" .
+        $post;
+
+    stream_set_blocking($socket, false);
+    @fwrite($socket, $request);
+    @fclose($socket);
+
+    error_log('Silent print queued: ' . $url);
     error_log('Silent print IDs: ' . json_encode($ids));
     error_log('Silent print inventory: ' . $inventoryType);
-    error_log('Silent print result: ' . (string)$result);
 }
 
 /**
@@ -185,7 +223,11 @@ try {
         $loc      = norm_str($locs[$i] ?? '');
         $sku      = norm_str($skus[$i] ?? '');
         $batch = norm_str($batches[$i] ?? '');
-        $expiry = validate_expiry($expiries[$i] ?? null, !$expiryRequired);
+        $rawExpiry = norm_str($expiries[$i] ?? '');
+        if ($rawExpiry !== '' && !preg_match('/^(0?[1-9]|1[0-2])\/\d{4}$/', $rawExpiry)) {
+            throw new RuntimeException("Row " . ($i+1) . ": Expiry Date must use MM/YYYY.");
+        }
+        $expiry = validate_expiry($rawExpiry, true);
         $unit     = norm_nullable_str($units[$i] ?? '');
         $qtyctn   = norm_int($qtyctns[$i] ?? 0, 0);
         $totalAdd = norm_int($totals[$i] ?? 0, 0);
@@ -195,13 +237,13 @@ try {
         if ($loc === '' && $sku === '' && $totalAdd === 0 && $expiry === null) {
             continue;
         }
+        if ($expiryRequired && $expiry === null) {
+            throw new RuntimeException("Row " . ($i+1) . ": Expiry is required.");
+        }
 
         if ($loc === '' || $sku === '') {
             throw new RuntimeException("Row " . ($i+1) . ": Location and SKU are required.");
         }
-        if ($expiryRequired && $expiry === null) {
-            throw new RuntimeException("Row " . ($i+1) . ": Expiry is required.");
-        }   
         if ($totalAdd <= 0) {
             throw new RuntimeException("Row " . ($i+1) . ": TotalQty must be greater than 0.");
         }

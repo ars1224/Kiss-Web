@@ -9,11 +9,15 @@ class OrderRepository
 {
         private PDO $pdo;
         private ?bool $hasMinimumShelfLifeColumn = null;
+        private ?bool $hasOrderCommentsColumn = null;
+        private ?bool $hasOrderItemGiveAllAvailableColumn = null;
 
         public function __construct()
         {
             $this->pdo = db();
             $this->ensureMinimumShelfLifeColumn();
+            $this->ensureOrderCommentsColumn();
+            $this->ensureOrderItemGiveAllAvailableColumn();
         }
 
         public function createOrder(array $header): int
@@ -25,6 +29,14 @@ class OrderRepository
             $minimumShelfLifeValueSql = $this->hasMinimumShelfLifeColumn()
                 ? ',
                         :min_shelf_life_months'
+                : '';
+            $orderCommentsSql = $this->hasOrderCommentsColumn()
+                ? ',
+                        order_comments'
+                : '';
+            $orderCommentsValueSql = $this->hasOrderCommentsColumn()
+                ? ',
+                        :order_comments'
                 : '';
 
             $sql = "INSERT INTO orders (
@@ -41,6 +53,7 @@ class OrderRepository
                         sales_person,
                         rounding_mode
                         {$minimumShelfLifeSql}
+                        {$orderCommentsSql}
                     ) VALUES (
                         :invoice_no,
                         :order_date,
@@ -55,6 +68,7 @@ class OrderRepository
                         :sales_person,
                         :rounding_mode
                         {$minimumShelfLifeValueSql}
+                        {$orderCommentsValueSql}
                     )";
 
             $stmt = $this->pdo->prepare($sql);
@@ -72,6 +86,10 @@ class OrderRepository
                 ':sales_person' => (string)($header['sales_person'] ?? ''),
                 ':rounding_mode' => isset($header['rounding_mode']) && (string)$header['rounding_mode'] === '1' ? 1 : 0
             ];
+
+            if ($this->hasOrderCommentsColumn()) {
+                $params[':order_comments'] = $this->normalizeOrderComments($header);
+            }
 
             if ($this->hasMinimumShelfLifeColumn()) {
                 $params[':min_shelf_life_months'] =
@@ -100,6 +118,15 @@ class OrderRepository
 
     public function insertOrderItem(int $orderId, array $item): void
     {
+        $giveAllAvailableSql = $this->hasOrderItemGiveAllAvailableColumn()
+            ? ',
+            give_all_available'
+            : '';
+        $giveAllAvailableValueSql = $this->hasOrderItemGiveAllAvailableColumn()
+            ? ',
+            :give_all_available'
+            : '';
+
         $sql = "INSERT INTO order_items (
             order_id,
             sku_code,
@@ -119,6 +146,7 @@ class OrderRepository
             picked_done,
             location,
             comment
+            {$giveAllAvailableSql}
         ) VALUES (
             :order_id,
             :sku_code,
@@ -138,11 +166,12 @@ class OrderRepository
             :picked_done,
             :location,
             :comment
+            {$giveAllAvailableValueSql}
         )";
 
         $stmt = $this->pdo->prepare($sql);
 
-        $stmt->execute([
+        $params = [
             ':order_id' => $orderId,
             ':sku_code' => (string)($item['sku_code'] ?? ''),
             ':description' => (string)($item['description'] ?? ''),
@@ -161,7 +190,13 @@ class OrderRepository
             ':picked_done' => '',
             ':location' => (string)($item['location'] ?? ''),
             ':comment' => (string)($item['comment'] ?? '')
-        ]);
+        ];
+
+        if ($this->hasOrderItemGiveAllAvailableColumn()) {
+            $params[':give_all_available'] = !empty($item['give_all_available']) ? 1 : 0;
+        }
+
+        $stmt->execute($params);
     }
 
 
@@ -253,6 +288,10 @@ class OrderRepository
             ? ',
                 min_shelf_life_months = :min_shelf_life_months'
             : '';
+        $orderCommentsSql = $this->hasOrderCommentsColumn()
+            ? ',
+                order_comments = :order_comments'
+            : '';
 
         $stmt = $this->pdo->prepare("
             UPDATE orders
@@ -270,6 +309,7 @@ class OrderRepository
                 sales_person = :sales_person,
                 rounding_mode = :rounding_mode
                 {$minimumShelfLifeSql}
+                {$orderCommentsSql}
             WHERE id = :id
         ");
 
@@ -289,12 +329,66 @@ class OrderRepository
             ':id' => $orderId
         ];
 
+        if ($this->hasOrderCommentsColumn()) {
+            $params[':order_comments'] = $this->normalizeOrderComments($header);
+        }
+
         if ($this->hasMinimumShelfLifeColumn()) {
             $params[':min_shelf_life_months'] =
                 (int)($header['min_shelf_life_months'] ?? 6) === 18 ? 18 : 6;
         }
 
         $stmt->execute($params);
+    }
+
+    private function normalizeOrderComments(array $header): ?string
+    {
+        $comments = trim((string)($header['order_comments'] ?? ''));
+
+        return $comments === '' ? null : $comments;
+    }
+
+    private function hasOrderCommentsColumn(): bool
+    {
+        if ($this->hasOrderCommentsColumn !== null) {
+            return $this->hasOrderCommentsColumn;
+        }
+
+        $stmt = $this->pdo->query("
+            SELECT COUNT(*)
+            FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = 'orders'
+              AND COLUMN_NAME = 'order_comments'
+        ");
+
+        $this->hasOrderCommentsColumn = (int)$stmt->fetchColumn() > 0;
+
+        return $this->hasOrderCommentsColumn;
+    }
+
+    private function ensureOrderCommentsColumn(): void
+    {
+        if ($this->hasOrderCommentsColumn()) {
+            return;
+        }
+
+        try {
+            $this->pdo->exec("
+                ALTER TABLE orders
+                ADD COLUMN order_comments TEXT DEFAULT NULL
+                AFTER min_shelf_life_months
+            ");
+            $this->hasOrderCommentsColumn = true;
+        } catch (Throwable $e) {
+            $this->hasOrderCommentsColumn = null;
+
+            if (!$this->hasOrderCommentsColumn()) {
+                error_log(
+                    'Could not add orders.order_comments: ' . $e->getMessage()
+                );
+            }
+        }
     }
 
     private function hasMinimumShelfLifeColumn(): bool
@@ -335,6 +429,48 @@ class OrderRepository
             if (!$this->hasMinimumShelfLifeColumn()) {
                 error_log(
                     'Could not add orders.min_shelf_life_months: ' . $e->getMessage()
+                );
+            }
+        }
+    }
+
+    private function hasOrderItemGiveAllAvailableColumn(): bool
+    {
+        if ($this->hasOrderItemGiveAllAvailableColumn !== null) {
+            return $this->hasOrderItemGiveAllAvailableColumn;
+        }
+
+        $stmt = $this->pdo->query("
+            SELECT COUNT(*)
+            FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = 'order_items'
+              AND COLUMN_NAME = 'give_all_available'
+        ");
+
+        $this->hasOrderItemGiveAllAvailableColumn = (int)$stmt->fetchColumn() > 0;
+
+        return $this->hasOrderItemGiveAllAvailableColumn;
+    }
+
+    private function ensureOrderItemGiveAllAvailableColumn(): void
+    {
+        if ($this->hasOrderItemGiveAllAvailableColumn()) {
+            return;
+        }
+
+        try {
+            $this->pdo->exec("
+                ALTER TABLE order_items
+                ADD COLUMN give_all_available TINYINT(1) NOT NULL DEFAULT 0
+            ");
+            $this->hasOrderItemGiveAllAvailableColumn = true;
+        } catch (Throwable $e) {
+            $this->hasOrderItemGiveAllAvailableColumn = null;
+
+            if (!$this->hasOrderItemGiveAllAvailableColumn()) {
+                error_log(
+                    'Could not add order_items.give_all_available: ' . $e->getMessage()
                 );
             }
         }

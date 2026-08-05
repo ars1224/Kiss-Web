@@ -42,10 +42,20 @@ $inventoryType = inventoryType();
         <div class="card-body">
           <div class="text-muted small mb-2">Breakdown (in this view)</div>
           <div class="d-flex flex-wrap gap-2">
-            <?php foreach (['create','add','move','update','adjust','delete','import','other'] as $k): ?>
-              <span class="badge <?= badge_class($k) ?>">
-                <?= strtoupper($k) ?>: <?= number_format((int)($counts[$k] ?? 0)) ?>
-              </span>
+            <?php foreach (['create','add','deduct','move','move-merge','update','adjust','delete','import','other'] as $k): ?>
+              <?php
+                $badgeParams = $_GET;
+                $badgeParams['action'] = $k;
+                if (isset($badgeParams['q'])) {
+                  $badgeParams['q'] = trim((string)preg_replace('/(?:^|\s)action:(".*?"|\S+)/i', '', (string)$badgeParams['q']));
+                }
+                $badgeUrl = './transactions.php' . ($badgeParams ? '?' . http_build_query($badgeParams) : '');
+              ?>
+              <a class="badge text-decoration-none <?= badge_class($k) ?>"
+                 href="<?= h($badgeUrl) ?>"
+                 title="Filter by <?= h(str_replace('-', ' ', $k)) ?>">
+                <?= h(strtoupper(str_replace('-', ' ', $k))) ?>: <?= number_format((int)($counts[$k] ?? 0)) ?>
+              </a>
             <?php endforeach; ?>
           </div>
         </div>
@@ -105,9 +115,9 @@ $hasAdv =
               <label class="form-label mb-1">Action</label>
               <select class="form-select" name="action">
                 <option value="">All</option>
-                <?php foreach (['create','add','move','update','adjust','delete','import'] as $opt): ?>
+                <?php foreach (['create','add','deduct','move','move-merge','update','adjust','delete','import','other'] as $opt): ?>
                   <option value="<?= h($opt) ?>" <?= (($filters['action'] ?? '') === $opt ? 'selected' : '') ?>>
-                    <?= strtoupper($opt) ?>
+                    <?= h(strtoupper(str_replace('-', ' ', $opt))) ?>
                   </option>
                 <?php endforeach; ?>
               </select>
@@ -181,8 +191,10 @@ $hasAdv =
         <?php else: ?>
           <?php foreach ($rows as $r): ?>
             <?php
-              $act = (string)($r['Action'] ?? 'other');
+              $act = action_group((string)($r['Action'] ?? 'other'));
               $delta = (int)($r['DeltaQty'] ?? 0);
+              $note = trim((string)($r['Comments'] ?? ''));
+              if ($note === '') $note = trim((string)($r['Notes'] ?? ''));
             ?>
             <tr>
   <td data-label="Time" class="small text-muted">
@@ -191,7 +203,7 @@ $hasAdv =
 
   <td data-label="Action">
     <span class="badge <?= badge_class($act) ?>">
-      <?= h(strtoupper($act)) ?>
+      <?= h(strtoupper(str_replace('-', ' ', $act))) ?>
     </span>
   </td>
 
@@ -224,9 +236,9 @@ $hasAdv =
         <div><span class="text-muted">Unit:</span> <?= h($r['UnitType'] ?? '—') ?></div>
         <div><span class="text-muted">Qty/ctn:</span> <?= number_format((int)($r['QtyPerCtn'] ?? 0)) ?></div>
 
-        <?php if (!empty($r['Comments'])): ?>
+        <?php if ($note !== ''): ?>
           <div class="mt-1">
-            <span class="text-muted">Notes:</span> <?= h($r['Comments']) ?>
+            <span class="text-muted">Notes:</span> <?= h($note) ?>
           </div>
         <?php endif; ?>
 

@@ -10,6 +10,7 @@ require_once __DIR__ . '/../../vendor/autoload.php';
 
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 
 try {
     if (!isset($_FILES['order_file'])) {
@@ -50,14 +51,18 @@ try {
     }
 
     $orderLines = [];
+    $orderComments = [];
     $highestRow = $sheet->getHighestRow();
+    $highestColumnIndex = Coordinate::columnIndexFromString($sheet->getHighestColumn());
+    $lastOrderLineRow = 0;
 
     for ($row = 8; $row <= $highestRow; $row++) {
         $sku = cleanCell($sheet->getCell('A' . $row)->getFormattedValue());
         $description = cleanCell($sheet->getCell('C' . $row)->getFormattedValue());
         $qtyRaw = cleanCell($sheet->getCell('D' . $row)->getFormattedValue());
+        $rowText = getRowText($sheet, $row, $highestColumnIndex);
 
-        if ($sku === '' && $description === '' && $qtyRaw === '') {
+        if ($rowText === '') {
             continue;
         }
 
@@ -76,7 +81,20 @@ try {
             'description' => $description,
             'quantity' => $qty,
         ];
+        $lastOrderLineRow = $row;
     }
+
+    if ($lastOrderLineRow > 0) {
+        for ($row = $lastOrderLineRow + 1; $row <= $highestRow; $row++) {
+            $rowText = getRowText($sheet, $row, $highestColumnIndex);
+
+            if (isCommentRowText($rowText)) {
+                $orderComments[] = $rowText;
+            }
+        }
+    }
+
+    $header['order_comments'] = implode(chr(10), array_values(array_unique($orderComments)));
 
     echo json_encode([
         'success' => true,
@@ -98,6 +116,33 @@ try {
 function cleanCell(string $value): string
 {
     return trim((string)preg_replace('/\s+/', ' ', $value));
+}
+
+function getRowText($sheet, int $row, int $highestColumnIndex): string
+{
+    $parts = [];
+
+    for ($column = 1; $column <= $highestColumnIndex; $column++) {
+        $cell = Coordinate::stringFromColumnIndex($column) . $row;
+        $value = cleanCell($sheet->getCell($cell)->getFormattedValue());
+
+        if ($value !== '') {
+            $parts[] = $value;
+        }
+    }
+
+    return implode(' ', array_values(array_unique($parts)));
+}
+
+function isCommentRowText(string $value): bool
+{
+    $value = trim($value);
+
+    if ($value === '' || !preg_match('/[A-Za-z]/', $value)) {
+        return false;
+    }
+
+    return !preg_match('/^(subtotal|sub total|total|gst|tax|freight|shipping)\b/i', $value);
 }
 
 function cleanAddress($sheet, array $cells): string

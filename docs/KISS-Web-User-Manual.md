@@ -442,11 +442,14 @@ It supports:
 
 - Start Picking
 - Save Picking
+- Edit pending or ongoing orders
+- Delete eligible orders
+- Reopen orders to add items
 - Download Pick Slip
 - Checking
 - Courier Booking
 - Packing Slip Upload
-- Printing carton labels
+- Print all carton labels or an individual item's labels
 
 The system stores picker name, checker name, courier details, packing slip file, and completion time on the order.
 
@@ -742,7 +745,9 @@ flowchart LR
     A["pending"] --> B["ongoing"]
     B --> C["booking"]
     B --> D["not_sent"]
+    C -->|"Reopen & Add Items"| B
     C --> E["waiting_packing_slip"]
+    E -->|"Reopen & Add Items"| B
     E --> F["sent"]
 ```
 
@@ -798,6 +803,8 @@ When rounding is enabled, the system tries to allocate full cartons using QtyPer
 6. Mark picked lines as done.
 7. Click **Save Picking**.
 
+While carton numbers or Done checkboxes have unsaved changes, Order View pauses its automatic refresh so those entries remain intact. Automatic refresh resumes after **Save Picking** succeeds.
+
 Saving picked lines can deduct stock from `productlocation`. If a picked line is short, the system can create a new `NO STOCK` order line for the remaining quantity.
 
 ### Checking an Order
@@ -821,6 +828,18 @@ If all items are `NO STOCK`, the order becomes `not_sent`. Otherwise, it becomes
 4. Click **Done Booking**.
 
 The order status becomes `waiting_packing_slip`.
+
+### Reopening an Order to Add Items
+
+Use this when a customer adds an item after the order has reached `booking` or `waiting_packing_slip`:
+
+1. Open the Booking or Waiting Slip order from **Orders List**.
+2. Click **Reopen & Add Items** and confirm the warning.
+3. The order returns to `ongoing` and opens on the edit page.
+4. Add the new SKU line or lines, preview the updated allocation, and save the order.
+5. Continue picking, then complete checking and courier booking for the updated order.
+
+Existing completed lines and their stock deductions are preserved. The previous checking and courier details are cleared. If a booking was already made on the courier website, amend or cancel it separately as required.
 
 ### Uploading Packing Slip
 

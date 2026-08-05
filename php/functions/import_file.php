@@ -5,6 +5,8 @@
     require_once __DIR__ . '/../util/inventory_helper.php';
     require_once __DIR__ . '/../util/notification_helper.php';
 
+    requireLogin();
+
     $table = inventoryTable();
 
     $requestedInventory = strtolower(trim(

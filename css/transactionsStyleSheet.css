@@ -35,6 +35,18 @@
   letter-spacing: .2px;
 }
 
+.location a.badge {
+  cursor: pointer;
+  transition: transform .15s ease, filter .15s ease;
+}
+
+.location a.badge:hover,
+.location a.badge:focus-visible {
+  color: #fff;
+  filter: brightness(.92);
+  transform: translateY(-1px);
+}
+
 
 
 /* Filter form */

@@ -6,6 +6,7 @@ let currentItems = [];
 let orderRefreshTimer = null;
 let isLoadingOrder = false;
 let pendingOrderRefresh = false;
+let hasUnsavedPickingChanges = false;
 const ORDER_REFRESH_INTERVAL = 10000;
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -22,10 +23,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('startPickingBtn')?.addEventListener('click', startPicking);
     document.getElementById('savePickingBtn')?.addEventListener('click', savePicking);
+    document.getElementById('editOrderBtn')?.addEventListener('click', editCurrentOrder);
+    document.getElementById('deleteOrderBtn')?.addEventListener('click', deleteCurrentOrder);
+    document.getElementById('printLabelsBtn')?.addEventListener('click', printCurrentOrderLabels);
     document.getElementById('checkedBtn')?.addEventListener('click', checkOrder);
     document.getElementById('bookCourierBtn')?.addEventListener('click', bookCourier);
     document.getElementById('uploadPackingSlipBtn')?.addEventListener('click', uploadPackingSlip);
     document.getElementById('downloadPickSlipBtn')?.addEventListener('click', downloadCurrentPickSlip);
+    document.getElementById('reopenOrderBtn')?.addEventListener('click', reopenOrder);
+
+    const orderViewBody = document.getElementById('orderViewBody');
+    orderViewBody?.addEventListener('input', markUnsavedPickingChanges);
+    orderViewBody?.addEventListener('change', markUnsavedPickingChanges);
 
     document.getElementById('courierName')?.addEventListener('change', () => {
         const courier = document.getElementById('courierName').value;
@@ -53,6 +62,14 @@ function startOrderAutoRefresh() {
     });
 }
 
+function markUnsavedPickingChanges(event) {
+    if (event.target?.matches?.(
+        '.pick-ctn-input, .pick-done-input, .pick-done-checkbox'
+    )) {
+        hasUnsavedPickingChanges = true;
+    }
+}
+
 function isOrderEntryActive() {
     const active = document.activeElement;
 
@@ -71,7 +88,7 @@ async function loadOrder(options = {}) {
 
     const silent = Boolean(options.silent);
 
-    if (silent && isOrderEntryActive()) {
+    if (silent && (hasUnsavedPickingChanges || isOrderEntryActive())) {
         pendingOrderRefresh = true;
         return;
     }
@@ -92,6 +109,11 @@ async function loadOrder(options = {}) {
             return;
         }
 
+        if (silent && (hasUnsavedPickingChanges || isOrderEntryActive())) {
+            pendingOrderRefresh = true;
+            return;
+        }
+
         currentOrder = result.order;
         currentItems = result.items || [];
         renderOrder(currentOrder, currentItems);
@@ -109,7 +131,7 @@ async function loadOrder(options = {}) {
 document.addEventListener('focusout', () => {
     if (pendingOrderRefresh) {
         window.setTimeout(() => {
-            if (!isOrderEntryActive()) {
+            if (!hasUnsavedPickingChanges && !isOrderEntryActive()) {
                 loadOrder({ silent: true });
             }
         }, 150);
@@ -149,11 +171,16 @@ async function savePicking() {
                 id: itemId,
                 ctnValues: [],
                 doneChecked: false,
-                hasDoneCheckbox: false
+                hasDoneCheckbox: false,
+                isAlreadyDone: false
             });
         }
 
         const group = grouped.get(itemId);
+
+        if (row.classList.contains('picked-row-done')) {
+            group.isAlreadyDone = true;
+        }
 
         row.querySelectorAll('.pick-ctn-input').forEach(input => {
             group.ctnValues.push(input.value.trim());
@@ -174,14 +201,14 @@ async function savePicking() {
     const items = [];
 
 grouped.forEach(group => {
-    if (!group.hasDoneCheckbox) {
+    if (!group.hasDoneCheckbox && !group.ctnValues.length) {
         return;
     }
 
     items.push({
         id: group.id,
         picked_ctn_no: group.ctnValues.join(' | '),
-        picked_done: group.doneChecked ? '1' : '0'
+        picked_done: group.doneChecked || group.isAlreadyDone ? '1' : '0'
     });
 });
 
@@ -212,6 +239,7 @@ grouped.forEach(group => {
             return;
         }
 
+        hasUnsavedPickingChanges = false;
         await loadOrder();
 
     } catch (error) {
@@ -342,15 +370,123 @@ async function uploadPackingSlip() {
     }
 }
 
+async function reopenOrder() {
+    const message = [
+        'Reopen this order to add more items?',
+        '',
+        'Existing completed items and stock deductions will stay unchanged.',
+        'Checking and courier details will be cleared. Amend or cancel the courier booking separately if required.'
+    ].join('\n');
+
+    if (!confirm(message)) {
+        return;
+    }
+
+    const reopenButton = document.getElementById('reopenOrderBtn');
+    reopenButton.disabled = true;
+    reopenButton.textContent = 'Reopening...';
+
+    try {
+        const response = await fetch('php/functions/reopen_order.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: orderId })
+        });
+        const result = await response.json();
+
+        if (!result.success) {
+            throw new Error(result.message || 'Order could not be reopened.');
+        }
+
+        window.location.href = result.edit_url
+            || `orders.php?edit=${encodeURIComponent(orderId)}&reopened=1`;
+    } catch (error) {
+        console.error(error);
+        alert(error.message || 'Reopen request failed.');
+        reopenButton.disabled = false;
+        reopenButton.textContent = 'Reopen & Add Items';
+    }
+}
+
+function editCurrentOrder() {
+    window.location.href = `orders.php?edit=${encodeURIComponent(orderId)}`;
+}
+
+async function deleteCurrentOrder() {
+    if (!confirm('Delete this order?')) return;
+
+    try {
+        const response = await fetch('php/functions/delete_order.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: orderId })
+        });
+
+        const result = await response.json();
+
+        if (!result.success) {
+            alert(result.message || 'Delete failed.');
+            return;
+        }
+
+        window.location.href = 'orders_list.php';
+    } catch (error) {
+        console.error(error);
+        alert('Delete request failed.');
+    }
+}
+
+async function printCurrentOrderLabels() {
+    try {
+        const response = await fetch(
+            `php/functions/print_carton_labels.php?id=${encodeURIComponent(orderId)}`
+        );
+
+        const rawText = await response.text();
+        console.log('Print labels response:', rawText);
+
+        let result;
+
+        try {
+            result = JSON.parse(rawText);
+        } catch (e) {
+            alert('Print failed. Server returned invalid JSON. Check console.');
+            return;
+        }
+
+        if (!result.ok) {
+            alert(result.message || 'Print labels failed.');
+            return;
+        }
+
+        alert('Carton labels sent to printer.');
+    } catch (error) {
+        console.error(error);
+        alert('Print request failed.');
+    }
+}
+
 function renderOrder(order, items) {
     const isPicking = order.status === 'ongoing';
     const status = order.status || 'pending';
+
+    document.getElementById('editOrderBtn').style.display =
+        ['pending', 'ongoing'].includes(status) ? 'inline-block' : 'none';
+
+    document.getElementById('deleteOrderBtn').style.display =
+        !['booking', 'waiting_packing_slip', 'sent'].includes(status) ? 'inline-block' : 'none';
+
+    document.getElementById('printLabelsBtn').style.display =
+        !['sent', 'not_sent'].includes(status) ? 'inline-block' : 'none';
 
     document.getElementById('startPickingBtn').style.display =
         order.status === 'pending' ? 'inline-block' : 'none';
 
     document.getElementById('savePickingBtn').style.display =
         order.status === 'ongoing' ? 'inline-block' : 'none';
+
+    document.getElementById('reopenOrderBtn').style.display =
+        ['booking', 'waiting_packing_slip'].includes(order.status) ? 'inline-block' : 'none';
 
     const downloadBtn = document.getElementById('downloadPickSlipBtn');
     if (downloadBtn) {
@@ -404,6 +540,8 @@ function renderOrder(order, items) {
                     <span>Delivery Address</span>
                     <strong>${formatEmpty(order.customer_address)}</strong>
                 </div>
+
+                ${renderOrderComments(order.order_comments)}
             </section>
 
             <div class="order-print-header print-only-summary">
@@ -425,6 +563,7 @@ function renderOrder(order, items) {
                 <p><strong>Address:</strong> ${escapeHtml(order.customer_address || '')}</p>
                 <p><strong>Customer Code:</strong> ${escapeHtml(order.customer_code || '')}</p>
                 <p><strong>Sales Person:</strong> ${escapeHtml(order.sales_person || '')}</p>
+                ${renderPrintOrderComments(order.order_comments)}
 
                 ${order.picker_name ? `<p><strong>Packed By:</strong> ${escapeHtml(order.picker_name)}</p>` : ''}
 
@@ -478,6 +617,29 @@ function renderOrder(order, items) {
 }
 
 
+function renderOrderComments(value) {
+    const text = String(value ?? '').trim();
+    if (!text) return '';
+
+    return [
+        '                <div class="order-comments-block">',
+        '                    <span>Order Comments</span>',
+        '                    <strong>' + formatMultiline(text) + '</strong>',
+        '                </div>'
+    ].join('');
+}
+
+function renderPrintOrderComments(value) {
+    const text = String(value ?? '').trim();
+    if (!text) return '';
+
+    return '<p><strong>Comments:</strong> ' + formatMultiline(text) + '</p>';
+}
+
+function formatMultiline(value) {
+    return escapeHtml(value).replace(/\r?\n/g, '<br>');
+}
+
 function renderMobileItems(items, isPicking) {
     if (!items.length) return '<p class="mobile-order-empty">No items found.</p>';
 
@@ -497,7 +659,7 @@ function renderMobileItems(items, isPicking) {
         const canEdit = isPicking && !isDone;
         const ctnInputs = Array.from(
             { length: ctn.length > 1 ? ctn.length : 1 },
-            (_, index) => renderSingleCtnInput(ctn[index] || '', canEdit, item, index)
+            (_, index) => renderSingleCtnInput(ctn[index] || '', isPicking, item, index)
         );
         const showActions = canPrint || isDone || canEdit;
 
@@ -648,7 +810,7 @@ function renderItems(items, isPicking) {
 
                     ${ctnShouldSpan
                         ? `<td rowspan="${maxLines}" class="merged-cell center-cell ctn-number-cell" style="text-align:center !important; vertical-align:middle !important;"><div class="ctn-number-value">${renderSingleCtnInput(ctnLines[0] || '', isPicking, item, 0)}</div></td>`
-                        : `<td class="center-cell ctn-number-cell" style="text-align:center !important; vertical-align:middle !important;"><div class="ctn-number-value">${renderSingleCtnInput(ctnLines[i] || '', canEditRow, item, i)}</div></td>`
+                        : `<td class="center-cell ctn-number-cell" style="text-align:center !important; vertical-align:middle !important;"><div class="ctn-number-value">${renderSingleCtnInput(ctnLines[i] || '', isPicking, item, i)}</div></td>`
                     }
 
                     ${locationShouldSpan
@@ -687,7 +849,7 @@ function renderItems(items, isPicking) {
                     ${!fullCtnShouldSpan ? `<td class="center-cell full-ctn-cell" style="text-align:center !important; vertical-align:middle !important;"><div class="full-ctn-value">${escapeHtml(fullCtnLines[i] || '')}</div></td>` : ''}
 
                     ${!ctnShouldSpan
-                        ? `<td class="center-cell ctn-number-cell" style="text-align:center !important; vertical-align:middle !important;"><div class="ctn-number-value">${renderSingleCtnInput(ctnLines[i] || '', canEditRow, item, i)}</div></td>`
+                        ? `<td class="center-cell ctn-number-cell" style="text-align:center !important; vertical-align:middle !important;"><div class="ctn-number-value">${renderSingleCtnInput(ctnLines[i] || '', isPicking, item, i)}</div></td>`
                         : ''
                     }
 
@@ -1093,9 +1255,6 @@ function renderSingleCtnInput(value, isPicking, item, lineIndex = 0) {
         return 'NO STOCK';
     }
 
-    const isDone =
-        String(item.picked_done || '') === '1';
-
     if (isPicking) {
 
         return `
@@ -1104,7 +1263,6 @@ function renderSingleCtnInput(value, isPicking, item, lineIndex = 0) {
                 type="text"
                 value="${escapeHtml(value || '')}"
                 placeholder="CTN #"
-                ${isDone ? 'disabled' : ''}
             >
         `;
     }

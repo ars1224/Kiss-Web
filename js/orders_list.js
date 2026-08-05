@@ -168,6 +168,16 @@ function renderOrders(orders) {
             : ''
         }
 
+        ${['booking', 'waiting_packing_slip'].includes(status)
+            ? `
+                <button type="button" class="btn-mini btn-reopen"
+                    onclick="reopenOrder(${order.id}, this)">
+                    Reopen &amp; Add
+                </button>
+            `
+            : ''
+        }
+
         ${!['booking', 'waiting_packing_slip', 'sent'].includes(status)
             ? `
                 <button type="button" class="btn-mini btn-delete"
@@ -244,6 +254,48 @@ async function updateStatus(id, status) {
 
 function editOrder(id) {
     window.location.href = `orders.php?edit=${id}`;
+}
+
+async function reopenOrder(id, button) {
+    const message = [
+        'Reopen this order to add more items?',
+        '',
+        'Existing completed items and stock deductions will stay unchanged.',
+        'Checking and courier details will be cleared. Amend or cancel the courier booking separately if required.'
+    ].join('\n');
+
+    if (!confirm(message)) {
+        return;
+    }
+
+    if (button) {
+        button.disabled = true;
+        button.textContent = 'Reopening...';
+    }
+
+    try {
+        const response = await fetch('php/functions/reopen_order.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id })
+        });
+        const result = await response.json();
+
+        if (!result.success) {
+            throw new Error(result.message || 'Order could not be reopened.');
+        }
+
+        window.location.href = result.edit_url
+            || `orders.php?edit=${encodeURIComponent(id)}&reopened=1`;
+    } catch (error) {
+        console.error(error);
+        alert(error.message || 'Reopen request failed.');
+
+        if (button) {
+            button.disabled = false;
+            button.textContent = 'Reopen & Add';
+        }
+    }
 }
 
 async function deleteOrder(id) {

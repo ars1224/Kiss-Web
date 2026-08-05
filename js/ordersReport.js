@@ -38,8 +38,10 @@ async function loadOrdersReport() {
         }
 
         renderOrdersReportSummary(data.summary);
+        renderFinalNotSent(data.final_not_sent);
         renderProductsNotSupplied(data.not_supplied);
         renderOrdersNotSent(data.not_sent);
+        renderReportCharts(data.charts || {});
 
     } catch (error) {
         console.error(error);
@@ -56,6 +58,149 @@ function renderOrdersReportSummary(summary) {
     document.getElementById('reportQtyNotSupplied').textContent = summary.total_qty_not_supplied ?? 0;
 }
 
+function renderReportCharts(charts) {
+    renderSkuBarChart(
+        'reportBestSellerSkuChart',
+        charts.top_sellers,
+        'No supplied SKU units for this date range.'
+    );
+
+    renderSkuBarChart(
+        'reportMostOrderedSkuChart',
+        charts.most_ordered,
+        'No ordered SKU units for this date range.'
+    );
+
+    renderMonthlyUnitsChart(
+        'reportMonthlyUnitsOutChart',
+        charts.monthly_units_out,
+        'No units out for this date range.'
+    );
+}
+
+function renderSkuBarChart(containerId, rows, emptyMessage) {
+    const container = document.getElementById(containerId);
+
+    if (!container) return;
+
+    const chartRows = getChartRows(rows);
+
+    if (chartRows.length === 0) {
+        container.innerHTML = `<div class="report-chart-empty">${escapeHtml(emptyMessage)}</div>`;
+        return;
+    }
+
+    const maxValue = getMaxChartValue(chartRows);
+
+    container.innerHTML = chartRows.map((row, index) => {
+        const value = getChartValue(row);
+        const width = value > 0 ? Math.max((value / maxValue) * 100, 3) : 0;
+        const sku = row.sku_code || 'Unknown SKU';
+        const description = row.description || '';
+
+        return `
+            <div class="report-chart-row">
+                <div class="report-chart-rank">${index + 1}</div>
+                <div class="report-chart-label">
+                    <strong>${escapeHtml(sku)}</strong>
+                    <span>${escapeHtml(description)}</span>
+                </div>
+                <div class="report-chart-track" aria-hidden="true">
+                    <span class="report-chart-fill" style="width: ${width}%;"></span>
+                </div>
+                <div class="report-chart-value">${formatQty(value)}</div>
+            </div>
+        `;
+    }).join('');
+}
+
+function renderMonthlyUnitsChart(containerId, rows, emptyMessage) {
+    const container = document.getElementById(containerId);
+
+    if (!container) return;
+
+    const chartRows = getChartRows(rows);
+
+    if (chartRows.length === 0) {
+        container.innerHTML = `<div class="report-chart-empty">${escapeHtml(emptyMessage)}</div>`;
+        return;
+    }
+
+    const maxValue = getMaxChartValue(chartRows);
+
+    container.innerHTML = chartRows.map(row => {
+        const value = getChartValue(row);
+        const height = value > 0 ? Math.max((value / maxValue) * 100, 4) : 0;
+        const label = row.month_label || row.month_key || 'Month';
+
+        return `
+            <div class="report-month-bar" title="${escapeHtml(label)}: ${formatQty(value)}">
+                <div class="report-month-value">${formatQty(value)}</div>
+                <div class="report-month-track" aria-hidden="true">
+                    <span class="report-month-fill" style="height: ${height}%;"></span>
+                </div>
+                <div class="report-month-label">${escapeHtml(label)}</div>
+            </div>
+        `;
+    }).join('');
+}
+
+function getChartRows(rows) {
+    if (!Array.isArray(rows)) return [];
+
+    return rows.filter(row => getChartValue(row) > 0);
+}
+
+function getMaxChartValue(rows) {
+    return Math.max(...rows.map(row => getChartValue(row)), 1);
+}
+
+function getChartValue(row) {
+    const value = Number(row?.total_units ?? 0);
+    return Number.isFinite(value) ? value : 0;
+}
+
+function formatQty(value) {
+    const number = Number(value || 0);
+
+    if (!Number.isFinite(number)) return '0';
+
+    return number.toLocaleString(undefined, {
+        maximumFractionDigits: Number.isInteger(number) ? 0 : 2
+    });
+}
+
+function renderFinalNotSent(rows) {
+    const section = document.getElementById('finalNotSentSection');
+    const tbody = document.getElementById('reportFinalNotSentBody');
+    const hasRows = Array.isArray(rows) && rows.length > 0;
+
+    if (section) {
+        section.hidden = !hasRows;
+    }
+
+    if (!tbody) return;
+
+    if (!hasRows) {
+        tbody.innerHTML = '';
+        return;
+    }
+
+    tbody.innerHTML = rows.map(row => `
+        <tr>
+            <td data-label="Invoice">
+                <a href="order_view.php?id=${encodeURIComponent(row.id)}" class="report-link">
+                    ${escapeHtml(row.invoice_no)}
+                </a>
+            </td>
+            <td data-label="Report Date">${escapeHtml(row.report_date || '')}</td>
+            <td data-label="Customer">${escapeHtml(row.customer_name || '')}</td>
+            <td data-label="Order Date">${escapeHtml(row.order_date || '')}</td>
+            <td data-label="Delivery Date">${escapeHtml(row.delivery_date || '')}</td>
+            <td data-label="Reason">${escapeHtml(row.status_reason || 'No reason added')}</td>
+        </tr>
+    `).join('');
+}
 function renderProductsNotSupplied(rows) {
     const tbody = document.getElementById('reportNotSuppliedBody');
 
@@ -85,13 +230,17 @@ function renderProductsNotSupplied(rows) {
 
 function renderOrdersNotSent(rows) {
     const tbody = document.getElementById('reportNotSentBody');
+    const section = document.getElementById('ordersStillNotSentSection');
+    const hasRows = Array.isArray(rows) && rows.length > 0;
 
-    if (!rows || rows.length === 0) {
-        tbody.innerHTML = `
-            <tr>
-                <td colspan="6" class="report-empty">No orders still not sent for this date range.</td>
-            </tr>
-        `;
+    if (section) {
+        section.hidden = !hasRows;
+    }
+
+    if (!tbody) return;
+
+    if (!hasRows) {
+        tbody.innerHTML = '';
         return;
     }
 
