@@ -397,10 +397,10 @@ function updateResultSummary(count) {
     if (!status && !search) {
         const finishedCount = allOrders.filter(isFinishedOrder).length;
         const activeText = `${count} active ${count === 1 ? 'order' : 'orders'}`;
-        const hiddenText = finishedCount
-            ? ` · ${finishedCount} finished ${finishedCount === 1 ? 'order' : 'orders'} hidden`
+        const finishedText = finishedCount
+            ? ` · ${finishedCount} finished ${finishedCount === 1 ? 'order' : 'orders'}`
             : '';
-        resultCount.textContent = `${activeText}${hiddenText}`;
+        resultCount.textContent = `${activeText}${finishedText}`;
         return;
     }
 
