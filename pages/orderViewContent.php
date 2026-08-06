@@ -3,11 +3,6 @@
     <div class="orders-actions no-print order-top-actions">
         <a href="orders_list.php" class="btn btn-secondary">Back to Orders</a>
 
-        <div class="order-sku-search">
-            <input type="search" id="orderSkuSearch" placeholder="Search SKU..." aria-label="Search order items by SKU" autocomplete="off">
-            <span id="orderSkuSearchResult" aria-live="polite"></span>
-        </div>
-
         <button type="button" class="btn btn-edit" id="editOrderBtn" style="display:none;">
             Edit
         </button>

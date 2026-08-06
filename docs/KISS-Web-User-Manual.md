@@ -444,7 +444,6 @@ It supports:
 
 - Start Picking
 - Save Picking
-- Search order items by SKU
 - Edit pending or ongoing orders
 - Delete eligible orders
 - Reopen orders to add items

@@ -26,7 +26,6 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('editOrderBtn')?.addEventListener('click', editCurrentOrder);
     document.getElementById('deleteOrderBtn')?.addEventListener('click', deleteCurrentOrder);
     document.getElementById('printLabelsBtn')?.addEventListener('click', printCurrentOrderLabels);
-    document.getElementById('orderSkuSearch')?.addEventListener('input', filterOrderItemsBySku);
     document.getElementById('checkedBtn')?.addEventListener('click', checkOrder);
     document.getElementById('bookCourierBtn')?.addEventListener('click', bookCourier);
     document.getElementById('uploadPackingSlipBtn')?.addEventListener('click', uploadPackingSlip);
@@ -68,33 +67,6 @@ function markUnsavedPickingChanges(event) {
         '.pick-ctn-input, .pick-done-input, .pick-done-checkbox'
     )) {
         hasUnsavedPickingChanges = true;
-    }
-}
-
-function filterOrderItemsBySku() {
-    const searchInput = document.getElementById('orderSkuSearch');
-    const resultText = document.getElementById('orderSkuSearchResult');
-
-    if (!searchInput) return;
-
-    const query = searchInput.value.trim().toLowerCase();
-    const matchingItems = currentItems.filter(item =>
-        String(item.sku_code || '').toLowerCase().includes(query)
-    );
-    const matchingIds = new Set(matchingItems.map(item => String(item.id)));
-
-    document.querySelectorAll(
-        '[data-order-item-row], [data-mobile-order-item-row]'
-    ).forEach(element => {
-        element.hidden = !matchingIds.has(String(element.dataset.itemId || ''));
-    });
-
-    if (resultText) {
-        const total = currentItems.length;
-        const label = total === 1 ? 'SKU' : 'SKUs';
-        resultText.textContent = query
-            ? `${matchingItems.length} of ${total} ${label}`
-            : `${total} ${label}`;
     }
 }
 
@@ -642,8 +614,6 @@ function renderOrder(order, items) {
             </section>
         </div>
     `;
-
-    filterOrderItemsBySku();
 }
 
 
