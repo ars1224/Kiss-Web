@@ -424,13 +424,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 0);
   });
 
-  btnPrintLabels?.addEventListener('click', () => {
+  btnPrintLabels?.addEventListener('click', async () => {
     const data = selectedDraftRows();
     if (!data.length || !printForm || !labelMode || !labelIds || !labelRows) return;
 
     const copies = parseInt(printCount?.value, 10) || 1;
     if (isNaN(copies) || copies <= 0) {
-      alert('Invalid print quantity.');
+      showTableMessage('Print quantity must be greater than 0.');
       return;
     }
 
@@ -443,7 +443,39 @@ document.addEventListener('DOMContentLoaded', () => {
     labelMode.value = 'draft';
     labelIds.value = '';
     labelRows.value = JSON.stringify(expanded);
-    printForm.requestSubmit();
+
+    const originalButtonText = btnPrintLabels.textContent;
+    btnPrintLabels.disabled = true;
+    btnPrintLabels.textContent = 'Printing...';
+
+    try {
+      const response = await fetch(printForm.action, {
+        method: 'POST',
+        headers: { 'Accept': 'application/json' },
+        body: new FormData(printForm),
+      });
+
+      const rawText = await response.text();
+      let result;
+
+      try {
+        result = JSON.parse(rawText);
+      } catch (error) {
+        throw new Error('Print failed because the server returned an invalid response.');
+      }
+
+      if (!response.ok || !result.ok) {
+        throw new Error(result.message || 'Labels could not be printed.');
+      }
+
+      showTableMessage(result.message || 'Labels printed successfully.', 'success');
+    } catch (error) {
+      console.error(error);
+      showTableMessage(error.message || 'Labels could not be printed. Please try again.');
+    } finally {
+      btnPrintLabels.disabled = false;
+      btnPrintLabels.textContent = originalButtonText;
+    }
   });
 
   if (btnImportCSV && importFile && importForm) {

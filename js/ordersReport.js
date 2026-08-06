@@ -2,11 +2,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const reportFromDate = document.getElementById('reportFromDate');
     const reportToDate = document.getElementById('reportToDate');
     const generateBtn = document.getElementById('generateOrdersReportBtn');
+    const reportPage = document.querySelector('.orders-report-page');
 
     const exportPdfBtn = document.getElementById('exportOrdersReportPdfBtn');
 
     if (exportPdfBtn) {
         exportPdfBtn.addEventListener('click', exportOrdersReportPdf);
+    }
+
+    if (reportPage) {
+        reportPage.addEventListener('click', event => {
+            const saveButton = event.target.closest('.report-reason-save');
+
+            if (saveButton) saveOrderStatusReason(saveButton);
+        });
     }
 
     const today = new Date().toISOString().split('T')[0];
@@ -197,7 +206,7 @@ function renderFinalNotSent(rows) {
             <td data-label="Customer">${escapeHtml(row.customer_name || '')}</td>
             <td data-label="Order Date">${escapeHtml(row.order_date || '')}</td>
             <td data-label="Delivery Date">${escapeHtml(row.delivery_date || '')}</td>
-            <td data-label="Reason">${escapeHtml(row.status_reason || 'No reason added')}</td>
+            <td data-label="Reason / Comment">${renderOrderReasonEditor(row)}</td>
         </tr>
     `).join('');
 }
@@ -255,9 +264,86 @@ function renderOrdersNotSent(rows) {
             <td data-label="Order Date">${escapeHtml(row.order_date)}</td>
             <td data-label="Delivery Date">${escapeHtml(row.delivery_date || '')}</td>
             <td data-label="Status">${renderReportStatus(row.status)}</td>
-            <td data-label="Reason">${escapeHtml(row.status_reason || 'No reason added')}</td>
+            <td data-label="Reason / Comment">${renderOrderReasonEditor(row)}</td>
         </tr>
     `).join('');
+}
+
+function renderOrderReasonEditor(row) {
+    const orderId = Number.parseInt(row?.id, 10);
+    const reason = row?.status_reason || '';
+
+    if (!Number.isInteger(orderId) || orderId <= 0) {
+        return escapeHtml(reason || 'No reason added');
+    }
+
+    return `
+        <div class="report-reason-editor">
+            <textarea
+                class="report-reason-input"
+                rows="2"
+                maxlength="255"
+                placeholder="Why has this order not been sent?"
+                aria-label="Reason this order has not been sent"
+            >${escapeHtml(reason)}</textarea>
+            <div class="report-reason-actions">
+                <button
+                    type="button"
+                    class="report-reason-save"
+                    data-order-id="${orderId}"
+                >Save</button>
+                <span class="report-reason-status" role="status" aria-live="polite"></span>
+            </div>
+        </div>
+    `;
+}
+
+async function saveOrderStatusReason(saveButton) {
+    const editor = saveButton.closest('.report-reason-editor');
+    const input = editor?.querySelector('.report-reason-input');
+    const status = editor?.querySelector('.report-reason-status');
+    const orderId = Number.parseInt(saveButton.dataset.orderId, 10);
+
+    if (!input || !status || !Number.isInteger(orderId) || orderId <= 0) return;
+
+    const reason = input.value.trim();
+
+    if (reason.length > 255) {
+        showReasonSaveStatus(status, 'Reason is too long.', true);
+        return;
+    }
+
+    saveButton.disabled = true;
+    saveButton.textContent = 'Saving...';
+    showReasonSaveStatus(status, 'Saving...', false);
+
+    try {
+        const response = await fetch('php/functions/update_order_status_reason.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: orderId, reason })
+        });
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+            throw new Error(data.message || 'Could not save the reason.');
+        }
+
+        input.value = data.status_reason || '';
+        showReasonSaveStatus(status, 'Saved', false, true);
+    } catch (error) {
+        console.error(error);
+        showReasonSaveStatus(status, error.message || 'Could not save.', true);
+    } finally {
+        saveButton.disabled = false;
+        saveButton.textContent = 'Save';
+    }
+}
+
+function showReasonSaveStatus(status, message, isError = false, isSuccess = false) {
+    status.textContent = message;
+    status.classList.toggle('is-error', isError);
+    status.classList.toggle('is-success', isSuccess);
 }
 
 function renderReportStatus(status) {

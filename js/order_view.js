@@ -7,6 +7,7 @@ let orderRefreshTimer = null;
 let isLoadingOrder = false;
 let pendingOrderRefresh = false;
 let hasUnsavedPickingChanges = false;
+let hideFinishedRows = false;
 const ORDER_REFRESH_INTERVAL = 10000;
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -22,10 +23,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     document.getElementById('startPickingBtn')?.addEventListener('click', startPicking);
-    document.getElementById('savePickingBtn')?.addEventListener('click', savePicking);
-    document.getElementById('editOrderBtn')?.addEventListener('click', editCurrentOrder);
-    document.getElementById('deleteOrderBtn')?.addEventListener('click', deleteCurrentOrder);
-    document.getElementById('printLabelsBtn')?.addEventListener('click', printCurrentOrderLabels);
     document.getElementById('checkedBtn')?.addEventListener('click', checkOrder);
     document.getElementById('bookCourierBtn')?.addEventListener('click', bookCourier);
     document.getElementById('uploadPackingSlipBtn')?.addEventListener('click', uploadPackingSlip);
@@ -34,7 +31,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const orderViewBody = document.getElementById('orderViewBody');
     orderViewBody?.addEventListener('input', markUnsavedPickingChanges);
-    orderViewBody?.addEventListener('change', markUnsavedPickingChanges);
+    orderViewBody?.addEventListener('change', handleOrderViewChange);
+    orderViewBody?.addEventListener('click', handleOrderViewClick);
 
     document.getElementById('courierName')?.addEventListener('change', () => {
         const courier = document.getElementById('courierName').value;
@@ -68,6 +66,97 @@ function markUnsavedPickingChanges(event) {
     )) {
         hasUnsavedPickingChanges = true;
     }
+}
+
+function handleOrderViewChange(event) {
+    markUnsavedPickingChanges(event);
+
+    if (event.target?.matches?.('#hideFinishedRows')) {
+        hideFinishedRows = Boolean(event.target.checked);
+        applyFinishedRowsVisibility();
+    }
+}
+
+function handleOrderViewClick(event) {
+    const button = event.target?.closest?.('[data-order-view-action]');
+    if (!button) return;
+
+    const handlers = {
+        edit: editCurrentOrder,
+        delete: deleteCurrentOrder,
+        print: printCurrentOrderLabels,
+        save: savePicking
+    };
+    const handler = handlers[button.dataset.orderViewAction];
+
+    if (handler) {
+        handler();
+    }
+}
+
+function renderOrderItemControls(status) {
+    const canEdit = ['pending', 'ongoing'].includes(status);
+    const canDelete = !['booking', 'waiting_packing_slip', 'sent'].includes(status);
+    const canPrint = !['sent', 'not_sent'].includes(status);
+    const canSavePicking = status === 'ongoing';
+
+    return `
+        <div class="order-item-controls no-print">
+            ${renderHideFinishedRowsToggle()}
+            <div class="order-item-action-buttons">
+                ${canEdit ? '<button type="button" class="btn btn-edit" id="editOrderBtn" data-order-view-action="edit">Edit</button>' : ''}
+                ${canDelete ? '<button type="button" class="btn btn-delete" id="deleteOrderBtn" data-order-view-action="delete">Delete</button>' : ''}
+                ${canPrint ? '<button type="button" class="btn btn-print" id="printLabelsBtn" data-order-view-action="print">Print Labels</button>' : ''}
+                ${canSavePicking ? '<button type="button" class="btn btn-success" id="savePickingBtn" data-order-view-action="save">Save Picking</button>' : ''}
+            </div>
+        </div>
+    `;
+}
+
+function applyFinishedRowsVisibility() {
+    const toggle = document.getElementById('hideFinishedRows');
+    const summary = document.getElementById('finishedRowsSummary');
+
+    if (!toggle) return;
+
+    const finishedItemIds = new Set();
+
+    document.querySelectorAll(
+        '[data-order-item-row], [data-mobile-order-item-row]'
+    ).forEach(row => {
+        const isFinished = row.classList.contains('picked-row-done');
+
+        if (isFinished) {
+            finishedItemIds.add(String(row.dataset.itemId || ''));
+        }
+
+        row.hidden = toggle.checked && isFinished;
+    });
+
+    if (!summary) return;
+
+    const finishedCount = finishedItemIds.size;
+
+    if (finishedCount === 0) {
+        summary.textContent = 'No finished rows';
+    } else if (toggle.checked) {
+        summary.textContent = `${finishedCount} hidden`;
+    } else {
+        summary.textContent = `${finishedCount} finished`;
+    }
+}
+
+function renderHideFinishedRowsToggle() {
+    return `
+        <div class="order-finished-toggle-row no-print">
+            <label class="order-finished-toggle" for="hideFinishedRows">
+                <input type="checkbox" id="hideFinishedRows" role="switch" aria-controls="orderItemsSection" ${hideFinishedRows ? 'checked' : ''}>
+                <span class="order-finished-toggle-track" aria-hidden="true"></span>
+                <span class="order-finished-toggle-label">Hide finished rows</span>
+                <small id="finishedRowsSummary" aria-live="polite">No finished rows</small>
+            </label>
+        </div>
+    `;
 }
 
 function isOrderEntryActive() {
@@ -470,20 +559,8 @@ function renderOrder(order, items) {
     const isPicking = order.status === 'ongoing';
     const status = order.status || 'pending';
 
-    document.getElementById('editOrderBtn').style.display =
-        ['pending', 'ongoing'].includes(status) ? 'inline-block' : 'none';
-
-    document.getElementById('deleteOrderBtn').style.display =
-        !['booking', 'waiting_packing_slip', 'sent'].includes(status) ? 'inline-block' : 'none';
-
-    document.getElementById('printLabelsBtn').style.display =
-        !['sent', 'not_sent'].includes(status) ? 'inline-block' : 'none';
-
     document.getElementById('startPickingBtn').style.display =
         order.status === 'pending' ? 'inline-block' : 'none';
-
-    document.getElementById('savePickingBtn').style.display =
-        order.status === 'ongoing' ? 'inline-block' : 'none';
 
     document.getElementById('reopenOrderBtn').style.display =
         ['booking', 'waiting_packing_slip'].includes(order.status) ? 'inline-block' : 'none';
@@ -574,7 +651,9 @@ function renderOrder(order, items) {
                 ${order.packing_slip_file ? `<p><strong>Packing Slip:</strong> <a href="${escapeHtml(order.packing_slip_file)}" target="_blank">View File</a></p>` : ''}
             </div>
 
-            <section class="order-lines-card">
+            ${renderOrderItemControls(status)}
+
+            <section class="order-lines-card" id="orderItemsSection">
                 <div class="order-lines-header">
                     <div>
                         <h3>Items</h3>
@@ -614,6 +693,8 @@ function renderOrder(order, items) {
             </section>
         </div>
     `;
+
+    applyFinishedRowsVisibility();
 }
 
 
