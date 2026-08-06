@@ -97,16 +97,25 @@ function renderFilteredOrders() {
     }
 
     if (search) {
-        filtered = filtered.filter(order =>
-            String(order.invoice_no || '').toLowerCase().includes(search) ||
-            String(order.customer_name || '').toLowerCase().includes(search) ||
-            String(order.order_number || '').toLowerCase().includes(search)
-        );
+        filtered = filtered.filter(order => orderMatchesSearch(order, search));
     }
 
     updateResultSummary(filtered.length);
     updateActiveStatusCard(status);
     renderOrders(filtered);
+}
+
+function orderMatchesSearch(order, search) {
+    const normalizedSearch = String(search || '').toLowerCase().trim();
+
+    if (!normalizedSearch) return true;
+
+    return [
+        order.invoice_no,
+        order.customer_name,
+        order.order_number,
+        order.sku_codes
+    ].some(value => String(value || '').toLowerCase().includes(normalizedSearch));
 }
 
 function renderOrders(orders) {

@@ -66,8 +66,8 @@
             </div>
 
             <div class="form-group">
-                <label for="searchOrder">Search</label>
-                <input type="text" id="searchOrder" placeholder="Invoice, customer, order no...">
+                <label for="searchOrder">Search Orders or SKU</label>
+                <input type="text" id="searchOrder" placeholder="Invoice, customer, order no, or SKU...">
             </div>
         </div>
 

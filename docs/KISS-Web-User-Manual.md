@@ -400,7 +400,7 @@ The page includes status cards for:
 - Sent
 - Not Sent
 
-Users can filter by status and search by invoice, customer, or order number.
+Users can filter by status and search by invoice, customer, order number, or SKU. A SKU search shows every order containing a matching SKU, so staff can see the related invoice numbers and customers. Matching is case-insensitive and supports partial SKU text.
 
 ### Create Order
 
