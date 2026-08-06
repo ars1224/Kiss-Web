@@ -26,6 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('editOrderBtn')?.addEventListener('click', editCurrentOrder);
     document.getElementById('deleteOrderBtn')?.addEventListener('click', deleteCurrentOrder);
     document.getElementById('printLabelsBtn')?.addEventListener('click', printCurrentOrderLabels);
+    document.getElementById('hideFinishedRows')?.addEventListener('change', applyFinishedRowsVisibility);
     document.getElementById('checkedBtn')?.addEventListener('click', checkOrder);
     document.getElementById('bookCourierBtn')?.addEventListener('click', bookCourier);
     document.getElementById('uploadPackingSlipBtn')?.addEventListener('click', uploadPackingSlip);
@@ -67,6 +68,39 @@ function markUnsavedPickingChanges(event) {
         '.pick-ctn-input, .pick-done-input, .pick-done-checkbox'
     )) {
         hasUnsavedPickingChanges = true;
+    }
+}
+
+function applyFinishedRowsVisibility() {
+    const toggle = document.getElementById('hideFinishedRows');
+    const summary = document.getElementById('finishedRowsSummary');
+
+    if (!toggle) return;
+
+    const finishedItemIds = new Set();
+
+    document.querySelectorAll(
+        '[data-order-item-row], [data-mobile-order-item-row]'
+    ).forEach(row => {
+        const isFinished = row.classList.contains('picked-row-done');
+
+        if (isFinished) {
+            finishedItemIds.add(String(row.dataset.itemId || ''));
+        }
+
+        row.hidden = toggle.checked && isFinished;
+    });
+
+    if (!summary) return;
+
+    const finishedCount = finishedItemIds.size;
+
+    if (finishedCount === 0) {
+        summary.textContent = 'No finished rows';
+    } else if (toggle.checked) {
+        summary.textContent = `${finishedCount} hidden`;
+    } else {
+        summary.textContent = `${finishedCount} finished`;
     }
 }
 
@@ -614,6 +648,8 @@ function renderOrder(order, items) {
             </section>
         </div>
     `;
+
+    applyFinishedRowsVisibility();
 }
 
 

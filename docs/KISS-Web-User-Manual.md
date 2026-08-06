@@ -444,6 +444,7 @@ It supports:
 
 - Start Picking
 - Save Picking
+- Hide finished rows on desktop and mobile
 - Edit pending or ongoing orders
 - Delete eligible orders
 - Reopen orders to add items
@@ -808,6 +809,8 @@ When rounding is enabled, the system tries to allocate full cartons using QtyPer
 5. Enter or confirm carton numbers where required.
 6. Mark picked lines as done.
 7. Click **Save Picking**.
+
+Use the **Hide finished rows** switch to temporarily remove saved Done items from the Order View list. Newly checked rows remain visible until **Save Picking** records them. The switch continues to apply when Order View automatically refreshes, and switching it off shows every row again.
 
 While carton numbers or Done checkboxes have unsaved changes, Order View pauses its automatic refresh so those entries remain intact. Automatic refresh resumes after **Save Picking** succeeds.
 
