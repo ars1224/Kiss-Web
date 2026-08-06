@@ -379,7 +379,7 @@ Allowed statuses are:
 
 The Orders List is loaded from `orders_list.php` and `pages/ordersListContent.php`.
 
-It shows all orders with:
+It can show orders with:
 
 - Invoice
 - Date
@@ -400,7 +400,9 @@ The page includes status cards for:
 - Sent
 - Not Sent
 
-Users can filter by status and search by invoice, customer, order number, or SKU. A SKU search shows every order containing a matching SKU, so staff can see the related invoice numbers and customers. Matching is case-insensitive and supports partial SKU text.
+By default, the table shows only active Pending, Ongoing, Booking, and Waiting Slip orders. Sent and Not Sent orders remain available by clicking their status cards or choosing them in **Filter Status**.
+
+With **Active Orders (Default)** selected, searching checks every status, including Sent and Not Sent. Users can search by invoice, customer, order number, or SKU. A SKU search shows every order containing a matching SKU, so staff can see the related invoice numbers and customers. Matching is case-insensitive and supports partial SKU text. If a specific status is selected, search is limited to that status.
 
 ### Create Order
 

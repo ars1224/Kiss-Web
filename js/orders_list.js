@@ -2,6 +2,7 @@ let allOrders = [];
 let ordersRefreshTimer = null;
 let isLoadingOrders = false;
 const ORDERS_REFRESH_INTERVAL = 10000;
+const FINISHED_ORDER_STATUSES = new Set(['sent', 'not_sent']);
 
 document.addEventListener('DOMContentLoaded', () => {
     loadOrders();
@@ -91,9 +92,12 @@ function renderFilteredOrders() {
     const search = document.getElementById('searchOrder').value.toLowerCase().trim();
 
     let filtered = allOrders;
+    const isDefaultActiveView = !status && !search;
 
     if (status) {
         filtered = filtered.filter(order => order.status === status);
+    } else if (isDefaultActiveView) {
+        filtered = filtered.filter(order => !isFinishedOrder(order));
     }
 
     if (search) {
@@ -103,6 +107,10 @@ function renderFilteredOrders() {
     updateResultSummary(filtered.length);
     updateActiveStatusCard(status);
     renderOrders(filtered);
+}
+
+function isFinishedOrder(order) {
+    return FINISHED_ORDER_STATUSES.has(order.status || 'pending');
 }
 
 function orderMatchesSearch(order, search) {
@@ -122,9 +130,19 @@ function renderOrders(orders) {
     const body = document.getElementById('ordersListBody');
 
     if (!orders.length) {
+        const status = document.getElementById('statusFilter').value;
+        const search = document.getElementById('searchOrder').value.trim();
+        let emptyMessage = 'No active orders found.';
+
+        if (search) {
+            emptyMessage = 'No matching orders found.';
+        } else if (status) {
+            emptyMessage = `No ${formatStatus(status)} orders found.`;
+        }
+
         body.innerHTML = `
             <tr class="empty-row">
-                <td colspan="9">No orders found.</td>
+                <td colspan="9">${escapeHtml(emptyMessage)}</td>
             </tr>
         `;
         return;
@@ -376,9 +394,19 @@ function updateResultSummary(count) {
         ? `${total} ${total === 1 ? 'order' : 'orders'}`
         : `${count} of ${total} orders`;
 
+    if (!status && !search) {
+        const finishedCount = allOrders.filter(isFinishedOrder).length;
+        const activeText = `${count} active ${count === 1 ? 'order' : 'orders'}`;
+        const hiddenText = finishedCount
+            ? ` · ${finishedCount} finished ${finishedCount === 1 ? 'order' : 'orders'} hidden`
+            : '';
+        resultCount.textContent = `${activeText}${hiddenText}`;
+        return;
+    }
+
     const context = [
         status ? formatStatus(status) : '',
-        search ? `matching "${search}"` : ''
+        search ? `matching "${search}"${status ? '' : ' across all statuses'}` : ''
     ].filter(Boolean).join(' ');
 
     resultCount.textContent = context ? `${filteredText} ${context}` : filteredText;

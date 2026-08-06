@@ -9,7 +9,7 @@
     <div class="card orders-form-card orders-list-card">
         <div class="orders-list-top">
             <div>
-                <h2>All Orders</h2>
+                <h2>Order List</h2>
                 <p id="ordersResultCount">Loading orders...</p>
             </div>
 
@@ -55,7 +55,7 @@
             <div class="form-group">
                 <label for="statusFilter">Filter Status</label>
                 <select id="statusFilter">
-                    <option value="">All Status</option>
+                    <option value="">Active Orders (Default)</option>
                     <option value="pending">Pending</option>
                     <option value="ongoing">Ongoing</option>
                     <option value="booking">Booking</option>
@@ -66,8 +66,9 @@
             </div>
 
             <div class="form-group">
-                <label for="searchOrder">Search Orders or SKU</label>
-                <input type="text" id="searchOrder" placeholder="Invoice, customer, order no, or SKU...">
+                <label for="searchOrder">Search All Orders or SKU</label>
+                <input type="text" id="searchOrder" placeholder="Invoice, customer, order no, or SKU..." aria-describedby="orderSearchHelp">
+                <small id="orderSearchHelp" class="orders-search-help">Search includes Sent and Not Sent orders.</small>
             </div>
         </div>
 
