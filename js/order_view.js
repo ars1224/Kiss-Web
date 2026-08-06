@@ -23,10 +23,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     document.getElementById('startPickingBtn')?.addEventListener('click', startPicking);
-    document.getElementById('savePickingBtn')?.addEventListener('click', savePicking);
-    document.getElementById('editOrderBtn')?.addEventListener('click', editCurrentOrder);
-    document.getElementById('deleteOrderBtn')?.addEventListener('click', deleteCurrentOrder);
-    document.getElementById('printLabelsBtn')?.addEventListener('click', printCurrentOrderLabels);
     document.getElementById('checkedBtn')?.addEventListener('click', checkOrder);
     document.getElementById('bookCourierBtn')?.addEventListener('click', bookCourier);
     document.getElementById('uploadPackingSlipBtn')?.addEventListener('click', uploadPackingSlip);
@@ -36,6 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const orderViewBody = document.getElementById('orderViewBody');
     orderViewBody?.addEventListener('input', markUnsavedPickingChanges);
     orderViewBody?.addEventListener('change', handleOrderViewChange);
+    orderViewBody?.addEventListener('click', handleOrderViewClick);
 
     document.getElementById('courierName')?.addEventListener('change', () => {
         const courier = document.getElementById('courierName').value;
@@ -78,6 +75,42 @@ function handleOrderViewChange(event) {
         hideFinishedRows = Boolean(event.target.checked);
         applyFinishedRowsVisibility();
     }
+}
+
+function handleOrderViewClick(event) {
+    const button = event.target?.closest?.('[data-order-view-action]');
+    if (!button) return;
+
+    const handlers = {
+        edit: editCurrentOrder,
+        delete: deleteCurrentOrder,
+        print: printCurrentOrderLabels,
+        save: savePicking
+    };
+    const handler = handlers[button.dataset.orderViewAction];
+
+    if (handler) {
+        handler();
+    }
+}
+
+function renderOrderItemControls(status) {
+    const canEdit = ['pending', 'ongoing'].includes(status);
+    const canDelete = !['booking', 'waiting_packing_slip', 'sent'].includes(status);
+    const canPrint = !['sent', 'not_sent'].includes(status);
+    const canSavePicking = status === 'ongoing';
+
+    return `
+        <div class="order-item-controls no-print">
+            ${renderHideFinishedRowsToggle()}
+            <div class="order-item-action-buttons">
+                ${canEdit ? '<button type="button" class="btn btn-edit" id="editOrderBtn" data-order-view-action="edit">Edit</button>' : ''}
+                ${canDelete ? '<button type="button" class="btn btn-delete" id="deleteOrderBtn" data-order-view-action="delete">Delete</button>' : ''}
+                ${canPrint ? '<button type="button" class="btn btn-print" id="printLabelsBtn" data-order-view-action="print">Print Labels</button>' : ''}
+                ${canSavePicking ? '<button type="button" class="btn btn-success" id="savePickingBtn" data-order-view-action="save">Save Picking</button>' : ''}
+            </div>
+        </div>
+    `;
 }
 
 function applyFinishedRowsVisibility() {
@@ -526,20 +559,8 @@ function renderOrder(order, items) {
     const isPicking = order.status === 'ongoing';
     const status = order.status || 'pending';
 
-    document.getElementById('editOrderBtn').style.display =
-        ['pending', 'ongoing'].includes(status) ? 'inline-block' : 'none';
-
-    document.getElementById('deleteOrderBtn').style.display =
-        !['booking', 'waiting_packing_slip', 'sent'].includes(status) ? 'inline-block' : 'none';
-
-    document.getElementById('printLabelsBtn').style.display =
-        !['sent', 'not_sent'].includes(status) ? 'inline-block' : 'none';
-
     document.getElementById('startPickingBtn').style.display =
         order.status === 'pending' ? 'inline-block' : 'none';
-
-    document.getElementById('savePickingBtn').style.display =
-        order.status === 'ongoing' ? 'inline-block' : 'none';
 
     document.getElementById('reopenOrderBtn').style.display =
         ['booking', 'waiting_packing_slip'].includes(order.status) ? 'inline-block' : 'none';
@@ -630,7 +651,7 @@ function renderOrder(order, items) {
                 ${order.packing_slip_file ? `<p><strong>Packing Slip:</strong> <a href="${escapeHtml(order.packing_slip_file)}" target="_blank">View File</a></p>` : ''}
             </div>
 
-            ${renderHideFinishedRowsToggle()}
+            ${renderOrderItemControls(status)}
 
             <section class="order-lines-card" id="orderItemsSection">
                 <div class="order-lines-header">

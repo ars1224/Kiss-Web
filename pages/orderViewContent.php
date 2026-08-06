@@ -3,24 +3,8 @@
     <div class="orders-actions no-print order-top-actions">
         <a href="orders_list.php" class="btn btn-secondary">Back to Orders</a>
 
-        <button type="button" class="btn btn-edit" id="editOrderBtn" style="display:none;">
-            Edit
-        </button>
-
-        <button type="button" class="btn btn-delete" id="deleteOrderBtn" style="display:none;">
-            Delete
-        </button>
-
-        <button type="button" class="btn btn-print" id="printLabelsBtn" style="display:none;">
-            Print Labels
-        </button>
-
         <button type="button" class="btn btn-primary" id="startPickingBtn">
             Start Picking
-        </button>
-
-        <button type="button" class="btn btn-success" id="savePickingBtn">
-            Save Picking
         </button>
 
         <button type="button" class="btn btn-reopen" id="reopenOrderBtn" style="display:none;">
