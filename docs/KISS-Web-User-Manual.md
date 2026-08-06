@@ -328,6 +328,8 @@ Buttons include:
 - Clear Form
 - Save All
 
+Printing selected draft rows keeps the user on Add Pallet and retains all entered row data. A green message confirms a successful print, while a red message reports a printing error.
+
 When saved, rows are inserted or merged with an existing matching row. A row is considered matching when Location, SKU, Batch, Expiry, QtyPerCtn, and Comments match. Matching rows have their quantity increased instead of creating a duplicate row.
 
 Expiry is required for products and raw materials for non-admin users. Admin users may leave expiry blank.

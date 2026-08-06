@@ -10,8 +10,8 @@ $headerRole = strtolower(trim(currentUserRole()));
 
 $notifications = getUserNotifications($pdoHeader, $headerUserId, $headerRole);
 $notificationCount = count($notifications);
-$appVersion = 'v2.8.1';
-$appBuild = '20260806.001';
+$appVersion = 'v2.8.2';
+$appBuild = '20260807.001';
 ?>
 
 <nav>

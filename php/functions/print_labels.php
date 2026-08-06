@@ -243,17 +243,29 @@ if (@file_put_contents($tmpPdf, $pdfBytes) === false) {
 }
 
 $cmd = 'C:\\print\\print_pdf.cmd ' . escapeshellarg($tmpPdf) . ' 2>&1';
-$out = shell_exec($cmd);
+$outputLines = [];
+$exitCode = 1;
+exec($cmd, $outputLines, $exitCode);
+$output = implode(PHP_EOL, $outputLines);
 
 @unlink($tmpPdf);
+
+if ($exitCode !== 0) {
+  error_log('Label print failed (exit ' . $exitCode . '): ' . $output);
+  json_fail(500, 'Labels could not be printed. Please try again or contact an administrator.');
+}
 
 // -------------------- Return JSON ALWAYS --------------------
 if (ob_get_level()) { ob_clean(); }
 header('Content-Type: application/json; charset=utf-8');
 
+$labelCount = count($rows);
+$message = $labelCount === 1
+  ? 'Label printed successfully.'
+  : "{$labelCount} labels printed successfully.";
+
 echo json_encode([
   'ok'      => true,
-  'message' => 'Printed',
-  'debug'   => $out
+  'message' => $message
 ]);
 exit;
