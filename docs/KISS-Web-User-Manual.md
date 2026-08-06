@@ -505,6 +505,10 @@ It provides:
 - Products Not Supplied
 - Orders Still Not Sent
 
+In **Not Sent Orders** and **Orders Still Not Sent**, type the explanation in the **Reason / Comment** box and click **Save**. The saved reason remains attached to the order when the report is generated again and is included in the PDF export. To remove a reason, clear the box and click **Save**.
+
+Each reason can contain up to 255 characters.
+
 The report API calculates sent orders, not sent orders, ordered quantity, supplied quantity, and not supplied quantity.
 
 ### Carton Labels
