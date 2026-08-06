@@ -67,8 +67,7 @@
 
             <div class="form-group">
                 <label for="searchOrder">Search All Orders or SKU</label>
-                <input type="text" id="searchOrder" placeholder="Invoice, customer, order no, or SKU..." aria-describedby="orderSearchHelp">
-                <small id="orderSearchHelp" class="orders-search-help">Search includes Sent and Not Sent orders.</small>
+                <input type="text" id="searchOrder" placeholder="Invoice, customer, order no, or SKU...">
             </div>
         </div>
 
