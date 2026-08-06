@@ -3,13 +3,6 @@
     <div class="orders-actions no-print order-top-actions">
         <a href="orders_list.php" class="btn btn-secondary">Back to Orders</a>
 
-        <label class="order-finished-toggle" for="hideFinishedRows">
-            <input type="checkbox" id="hideFinishedRows" role="switch" aria-controls="orderViewBody">
-            <span class="order-finished-toggle-track" aria-hidden="true"></span>
-            <span class="order-finished-toggle-label">Hide finished rows</span>
-            <small id="finishedRowsSummary" aria-live="polite">No finished rows</small>
-        </label>
-
         <button type="button" class="btn btn-edit" id="editOrderBtn" style="display:none;">
             Edit
         </button>

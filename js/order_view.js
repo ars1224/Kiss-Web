@@ -7,6 +7,7 @@ let orderRefreshTimer = null;
 let isLoadingOrder = false;
 let pendingOrderRefresh = false;
 let hasUnsavedPickingChanges = false;
+let hideFinishedRows = false;
 const ORDER_REFRESH_INTERVAL = 10000;
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -26,7 +27,6 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('editOrderBtn')?.addEventListener('click', editCurrentOrder);
     document.getElementById('deleteOrderBtn')?.addEventListener('click', deleteCurrentOrder);
     document.getElementById('printLabelsBtn')?.addEventListener('click', printCurrentOrderLabels);
-    document.getElementById('hideFinishedRows')?.addEventListener('change', applyFinishedRowsVisibility);
     document.getElementById('checkedBtn')?.addEventListener('click', checkOrder);
     document.getElementById('bookCourierBtn')?.addEventListener('click', bookCourier);
     document.getElementById('uploadPackingSlipBtn')?.addEventListener('click', uploadPackingSlip);
@@ -35,7 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const orderViewBody = document.getElementById('orderViewBody');
     orderViewBody?.addEventListener('input', markUnsavedPickingChanges);
-    orderViewBody?.addEventListener('change', markUnsavedPickingChanges);
+    orderViewBody?.addEventListener('change', handleOrderViewChange);
 
     document.getElementById('courierName')?.addEventListener('change', () => {
         const courier = document.getElementById('courierName').value;
@@ -71,6 +71,15 @@ function markUnsavedPickingChanges(event) {
     }
 }
 
+function handleOrderViewChange(event) {
+    markUnsavedPickingChanges(event);
+
+    if (event.target?.matches?.('#hideFinishedRows')) {
+        hideFinishedRows = Boolean(event.target.checked);
+        applyFinishedRowsVisibility();
+    }
+}
+
 function applyFinishedRowsVisibility() {
     const toggle = document.getElementById('hideFinishedRows');
     const summary = document.getElementById('finishedRowsSummary');
@@ -102,6 +111,19 @@ function applyFinishedRowsVisibility() {
     } else {
         summary.textContent = `${finishedCount} finished`;
     }
+}
+
+function renderHideFinishedRowsToggle() {
+    return `
+        <div class="order-finished-toggle-row no-print">
+            <label class="order-finished-toggle" for="hideFinishedRows">
+                <input type="checkbox" id="hideFinishedRows" role="switch" aria-controls="orderItemsSection" ${hideFinishedRows ? 'checked' : ''}>
+                <span class="order-finished-toggle-track" aria-hidden="true"></span>
+                <span class="order-finished-toggle-label">Hide finished rows</span>
+                <small id="finishedRowsSummary" aria-live="polite">No finished rows</small>
+            </label>
+        </div>
+    `;
 }
 
 function isOrderEntryActive() {
@@ -608,7 +630,9 @@ function renderOrder(order, items) {
                 ${order.packing_slip_file ? `<p><strong>Packing Slip:</strong> <a href="${escapeHtml(order.packing_slip_file)}" target="_blank">View File</a></p>` : ''}
             </div>
 
-            <section class="order-lines-card">
+            ${renderHideFinishedRowsToggle()}
+
+            <section class="order-lines-card" id="orderItemsSection">
                 <div class="order-lines-header">
                     <div>
                         <h3>Items</h3>

@@ -885,13 +885,18 @@
     backdrop-filter: blur(8px);
 }
 
+.order-finished-toggle-row {
+    display: flex;
+    justify-content: flex-start;
+    min-width: 0;
+}
+
 .order-finished-toggle {
     position: relative;
     display: inline-flex;
     align-items: center;
     gap: 8px;
     min-height: 40px;
-    margin-right: auto;
     padding: 7px 10px;
     border: 1px solid #cbd5e1;
     border-radius: 10px;
@@ -1258,9 +1263,7 @@
 
 @media (max-width: 900px) {
     .order-finished-toggle {
-        grid-column: 1 / -1;
         width: 100%;
-        margin-right: 0;
     }
 
     .order-finished-toggle-label {
