@@ -282,13 +282,34 @@ function buildPickingListRows(
                 $comments = trim((string)($stock['Comments'] ?? ''));
                 $batchExpiry = trim($batchNo . ' ' . $expiryDate);
 
-                $batchLines[] = $batchExpiry !== '' ? $batchExpiry : 'n/a';
-                $qtySuppliedLines[] = formatNumber($take);
-                $unitsPerCtnLines[] = $qtyPerCtn > 0 ? formatNumber($qtyPerCtn) : '';
-                $noFullCtnLines[] = $fullCtn > 0 ? formatNumber((float)$fullCtn) : '';
-                $ctnLines[] = '';
-                $locationLines[] = (string)($stock['Location'] ?? '');
-                $commentLines[] = $comments;
+                $fullQty = $fullCtn > 0 && $qtyPerCtn > 0
+                    ? $fullCtn * $qtyPerCtn
+                    : 0.0;
+                $partQty = $take - $fullQty;
+                $epsilon = max(1.0E-9, abs($take) * 1.0E-9);
+                $allocationLines = [];
+
+                if ($fullQty > $epsilon) {
+                    $allocationLines[] = [$fullQty, $fullCtn];
+                }
+
+                if ($partQty > $epsilon) {
+                    $allocationLines[] = [$partQty, null];
+                }
+
+                // Keep a part box on its own aligned row so Order View can
+                // show it separately from the full cartons at this location.
+                foreach ($allocationLines as [$lineQty, $lineFullCtn]) {
+                    $batchLines[] = $batchExpiry !== '' ? $batchExpiry : 'n/a';
+                    $qtySuppliedLines[] = formatNumber((float)$lineQty);
+                    $unitsPerCtnLines[] = $qtyPerCtn > 0 ? formatNumber($qtyPerCtn) : '';
+                    $noFullCtnLines[] = $lineFullCtn !== null
+                        ? formatNumber((float)$lineFullCtn)
+                        : '';
+                    $ctnLines[] = '';
+                    $locationLines[] = (string)($stock['Location'] ?? '');
+                    $commentLines[] = $comments;
+                }
 
                 $remainingForDisplay -= $take;
             }
@@ -662,7 +683,9 @@ function formatCtnRange(int $start, int $end): string
 
 function normalizeShelfLifeMonths(mixed $value): int
 {
-    return (int)$value === 18 ? 18 : 6;
+    $months = (int)$value;
+
+    return in_array($months, [1, 3, 6, 18], true) ? $months : 6;
 }
 
 function isExpiryAllowed(string $expiryDate, int $minimumMonths = 6): bool

@@ -7,6 +7,10 @@
             Start Picking
         </button>
 
+        <button type="button" class="btn btn-success" id="scanPalletBtn" data-scan-context="order" style="display:none;">
+            Scan Pallet
+        </button>
+
         <button type="button" class="btn btn-reopen" id="reopenOrderBtn" style="display:none;">
             Reopen &amp; Add Items
         </button>
@@ -56,14 +60,31 @@
 
         <div id="packingSlipPanel" class="packing-slip-panel" style="display:none;">
             <h3>Upload Packing Slip</h3>
-            <p>Upload the packing slip to complete this order.</p>
+            <p>Drop the packing slip below to upload it and complete this order.</p>
 
             <div class="packing-slip-row">
-                <input type="file" id="packingSlipFile" accept=".pdf,.jpg,.jpeg,.png,.xls,.xlsx">
+                <input
+                    type="file"
+                    id="packingSlipFile"
+                    class="packing-slip-file-input"
+                    accept=".pdf,.jpg,.jpeg,.png,.xls,.xlsx"
+                    aria-describedby="packingSlipStatus"
+                >
 
-                <button type="button" class="btn btn-success" id="uploadPackingSlipBtn">
-                    Upload & Mark Sent
-                </button>
+                <label
+                    for="packingSlipFile"
+                    id="packingSlipDropZone"
+                    class="packing-slip-drop-zone"
+                    role="button"
+                    tabindex="0"
+                    aria-describedby="packingSlipStatus"
+                >
+                    <span class="packing-slip-drop-icon" aria-hidden="true">&#8681;</span>
+                    <span class="packing-slip-drop-title">Drop packing slip here</span>
+                    <span id="packingSlipStatus" class="packing-slip-drop-status" aria-live="polite">
+                        PDF, JPG, PNG, XLS or XLSX &middot; click to browse
+                    </span>
+                </label>
             </div>
         </div>
         
@@ -73,4 +94,17 @@
 
 </div>
 
+<?php
+$palletScannerPopup = [
+    'eyebrow' => 'Order picking',
+    'instruction' => 'Point the phone camera at a pallet QR code.',
+    'placeholder' => 'PLT-P-0000000157',
+    'submit_label' => 'Check',
+];
+include __DIR__ . '/palletScannerPopup.php';
+unset($palletScannerPopup);
+?>
+
+<link rel="stylesheet" href="css/pallet_scanner.css?v=<?= filemtime(__DIR__ . '/../css/pallet_scanner.css') ?>">
 <script src="js/order_view.js?v=<?= filemtime(__DIR__ . '/../js/order_view.js') ?>"></script>
+<script src="js/pallet_scanner.js?v=<?= filemtime(__DIR__ . '/../js/pallet_scanner.js') ?>"></script>

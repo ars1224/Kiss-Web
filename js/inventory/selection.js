@@ -16,6 +16,10 @@ const moveButton   = findBtnWithIcon('button:has(i.fa-up-down-left-right)', 'mov
 const deleteButton = findBtnWithIcon('button:has(i.fa-trash)',             'delete');
 
 const printButton = document.getElementById('btnPrintLabels');
+const addQtyButton = document.getElementById('btnAddQty');
+const deductQtyButton = document.getElementById('btnDeduct');
+const desktopPersistentButtons = [addQtyButton, deductQtyButton];
+
 
 const otherButtons = actionGroup
   ? [...actionGroup.querySelectorAll('button')]
@@ -38,10 +42,20 @@ function updateActionVisibility() {
   }
   if (checkedCount === 0) {
     actionGroup.style.display = 'none';
+    desktopPersistentButtons.forEach(button => {
+      if (!button) return;
+      button.disabled = true;
+      button.title = 'Select one row or scan a pallet first.';
+    });
     return;
   }
 
   actionGroup.style.display = 'flex';
+  desktopPersistentButtons.forEach(button => {
+    if (!button) return;
+    button.disabled = false;
+    button.title = '';
+  });
 
   if (checkedCount > 1) {
     if (moveButton)   moveButton.style.display   = 'flex';
@@ -80,4 +94,6 @@ if (tbody) {
 }
 
 updateActionVisibility();
+
+window.addEventListener('resize', updateActionVisibility);
 

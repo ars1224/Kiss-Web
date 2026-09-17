@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const mode = document.getElementById('labelMode');
   const ids  = document.getElementById('labelIds');
   const rows = document.getElementById('labelRows');
+  const inventoryType = document.getElementById('labelInventoryType');
 
   const tbody = document.querySelector('.product-table tbody');
 
@@ -77,6 +78,18 @@ document.addEventListener('DOMContentLoaded', () => {
       showAlert('warning', 'No rows selected.');
       return;
     }
+
+    const selectedTypes = new Set(
+      [...tbody.querySelectorAll('input[type="checkbox"]:checked')]
+        .map(cb => cb.closest('tr')?.dataset.inventoryType || '')
+        .filter(Boolean)
+    );
+
+    if (selectedTypes.size > 1) {
+      showAlert('warning', 'Print labels for one inventory type at a time.');
+      return;
+    }
+    if (inventoryType) inventoryType.value = [...selectedTypes][0] || '';
 
     // form action must exist
     const url = (form.action || '').trim();

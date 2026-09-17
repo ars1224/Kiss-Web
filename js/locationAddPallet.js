@@ -57,7 +57,7 @@ function makeRow(data = {}) {
   const tr = document.createElement('tr');
   tr.innerHTML = `
     <td class="select-col"><input type="checkbox" class="row-check"></td>
-    <td><input name="EntryCode6[]" readonly></td>
+    <td class="d-none"><input type="hidden" name="EntryCode6[]"></td>
     <td><input name="Location[]" required></td>
     <td><input name="SKU_Code[]" required></td>
     <td><input name="BatchNo[]"></td>
@@ -77,8 +77,8 @@ function makeRow(data = {}) {
     <td><input name="DateAdded[]" readonly></td>
   `;
 
-  const entryCode = data.EntryCode6 || generate6DigitCode();
-  tr.querySelector('input[name="EntryCode6[]"]').value = entryCode;
+  const entryCode = generate6DigitCode();
+  tr.querySelector('input[name="EntryCode6[]"]').value = 'Assigned on save';
   tr.querySelector('input[name="Location[]"]').value = data.Location || '';
   tr.querySelector('input[name="SKU_Code[]"]').value = data.SKU_Code || '';
   tr.querySelector('input[name="BatchNo[]"]').value = data.BatchNo || '';
@@ -231,11 +231,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const checked = checks.filter(cb => cb.checked);
     const hasChecked = checked.length > 0;
 
-    btnPrintLabels?.classList.toggle('d-none', !hasChecked);
+    btnPrintLabels?.classList.add('d-none');
     duplicateSelectedBtn?.classList.toggle('d-none', !hasChecked);
     removeSelectedBtn?.classList.toggle('d-none', !hasChecked);
     duplicateCount?.classList.toggle('d-none', !hasChecked);
-    printCount?.classList.toggle('d-none', !hasChecked);
+    printCount?.classList.add('d-none');
 
     if (checkAll) {
       checkAll.checked = checks.length > 0 && checked.length === checks.length;

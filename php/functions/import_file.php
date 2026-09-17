@@ -4,6 +4,7 @@
     require_once __DIR__ . '/../util/transaction_repo.php';
     require_once __DIR__ . '/../util/inventory_helper.php';
     require_once __DIR__ . '/../util/notification_helper.php';
+    require_once __DIR__ . '/../util/pallet_id_helper.php';
 
     requireLogin();
 
@@ -218,6 +219,7 @@ if ($table === 'all') {
             $exact = $findExact->fetch(PDO::FETCH_ASSOC);
 
             if ($exact) {
+                ensurePalletId($pdo, $table, (int)$exact['EntryID']);
                 $skipped++;
                 continue;
             }
@@ -227,6 +229,7 @@ if ($table === 'all') {
 
             if ($existing) {
                 $entryId = (int)$existing['EntryID'];
+                ensurePalletId($pdo, $table, $entryId);
                 $before  = (int)$existing['TotalQty'];
 
                 $update->execute([$tot, $unt, $entryId]);
@@ -255,6 +258,7 @@ if ($table === 'all') {
             try {
                 $insert->execute([$loc, $sku, $bat, $exp, $unt, $qpc, $tot, $com]);
                 $eid = (int)$pdo->lastInsertId();
+                ensurePalletId($pdo, $table, $eid);
                 $inserted++;
 
                 tx_log([

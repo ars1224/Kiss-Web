@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     hidePreview();
+    setupOrderImportDropZone();
 
     const params = new URLSearchParams(window.location.search);
     const editId = params.get('edit');
@@ -45,16 +46,90 @@ document.getElementById('addLineBtn').addEventListener('click', () => {
     renderManualLines();
 });
 
-document.getElementById('importOrderBtn').addEventListener('click', async () => {
+function setupOrderImportDropZone() {
     const fileInput = document.getElementById('orderFile');
+    const dropZone = document.getElementById('orderImportDropZone');
 
-    if (!fileInput.files || !fileInput.files.length) {
-        alert('Please choose a file first.');
+    if (!fileInput || !dropZone) return;
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, event => {
+            event.preventDefault();
+
+            if (!dropZone.classList.contains('is-uploading')) {
+                dropZone.classList.add('is-dragover');
+            }
+        });
+    });
+
+    dropZone.addEventListener('dragleave', event => {
+        if (event.relatedTarget && dropZone.contains(event.relatedTarget)) return;
+        dropZone.classList.remove('is-dragover');
+    });
+
+    dropZone.addEventListener('drop', event => {
+        event.preventDefault();
+        dropZone.classList.remove('is-dragover');
+
+        if (dropZone.classList.contains('is-uploading')) return;
+
+        const files = Array.from(event.dataTransfer?.files || []);
+
+        if (files.length !== 1) {
+            setOrderImportDropState('error', 'Drop one invoice file at a time.');
+            return;
+        }
+
+        importOrderFile(files[0]);
+    });
+
+    dropZone.addEventListener('keydown', event => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        event.preventDefault();
+
+        if (!dropZone.classList.contains('is-uploading')) {
+            fileInput.click();
+        }
+    });
+
+    fileInput.addEventListener('change', () => {
+        const file = fileInput.files?.[0];
+        if (file) importOrderFile(file);
+    });
+}
+
+function setOrderImportDropState(state, message) {
+    const fileInput = document.getElementById('orderFile');
+    const dropZone = document.getElementById('orderImportDropZone');
+    const status = document.getElementById('orderImportStatus');
+    const uploading = state === 'uploading';
+
+    if (!fileInput || !dropZone || !status) return;
+
+    dropZone.classList.toggle('is-uploading', uploading);
+    dropZone.classList.toggle('is-error', state === 'error');
+    dropZone.classList.toggle('is-success', state === 'success');
+    dropZone.setAttribute('aria-busy', uploading ? 'true' : 'false');
+    dropZone.setAttribute('aria-disabled', uploading ? 'true' : 'false');
+    fileInput.disabled = uploading;
+    status.textContent = message;
+}
+
+async function importOrderFile(file) {
+    const fileInput = document.getElementById('orderFile');
+    const extension = String(file?.name || '').split('.').pop().toLowerCase();
+    const allowedExtensions = ['xls', 'xlsx', 'csv'];
+
+    if (!file || !allowedExtensions.includes(extension)) {
+        setOrderImportDropState('error', 'Use an XLS, XLSX or CSV invoice file.');
+        if (fileInput) fileInput.value = '';
         return;
     }
 
+    setOrderImportDropState('uploading', `Importing ${file.name}...`);
+
     const formData = new FormData();
-    formData.append('order_file', fileInput.files[0]);
+    formData.append('order_file', file);
 
     try {
         const response = await fetch('php/functions/import_order_file.php', {
@@ -65,8 +140,7 @@ document.getElementById('importOrderBtn').addEventListener('click', async () => 
         const result = await parseJsonResponse(response, 'Raw import response');
 
         if (!result.success) {
-            alert(result.message || 'Import failed.');
-            return;
+            throw new Error(result.message || 'Import failed.');
         }
 
         const header = result.order_header || {};
@@ -96,12 +170,22 @@ document.getElementById('importOrderBtn').addEventListener('click', async () => 
         renderPreview([]);
         hidePreview();
 
-        showSuccessMessage('File imported successfully.');
+        const lineLabel = manualLines.length === 1 ? 'line' : 'lines';
+        setOrderImportDropState(
+            'success',
+            `Imported ${file.name} - ${manualLines.length} ${lineLabel} loaded.`
+        );
+        showSuccessMessage('Invoice imported successfully.');
     } catch (error) {
         console.error(error);
-        alert(error.message || 'Import request failed. Check browser console.');
+        setOrderImportDropState(
+            'error',
+            error.message || 'Import failed. Drop the file again to retry.'
+        );
+    } finally {
+        if (fileInput) fileInput.value = '';
     }
-});
+}
 
 document.getElementById('previewOrderBtn').addEventListener('click', async () => {
     if (manualLines.length === 0) {

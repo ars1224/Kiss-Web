@@ -36,7 +36,7 @@ unset($_SESSION['add_pallet_form_rows']);
           <thead>
             <tr>
               <th class="select-col"><input type="checkbox" id="checkAll"></th>
-              <th>EntryCode</th>
+              <th class="d-none" aria-hidden="true"></th>
               <th>Location</th>
               <th>SKU_Code</th>
               <th>BatchNo</th>

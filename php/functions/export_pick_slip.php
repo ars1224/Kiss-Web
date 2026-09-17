@@ -301,7 +301,9 @@ function mergePickSlipItems(array $items): array
             trim((string)($item['description'] ?? ''))
         );
 
-        if (!isset($merged[$key])) {
+        $isFirstGroupedLine = !isset($merged[$key]);
+
+        if ($isFirstGroupedLine) {
             $merged[$key] = $item;
             $merged[$key]['_order_qty'] = 0.0;
             $merged[$key]['_order_qty_lines'] = [];
@@ -323,20 +325,35 @@ function mergePickSlipItems(array $items): array
         $orderQtyLines = splitPipeLines((string)($item['order_qty'] ?? ''));
         $orderQty = toNumber($item['order_qty'] ?? '');
 
-        foreach ($orderQtyLines as $orderQtyLine) {
-            $lineQty = toNumber($orderQtyLine);
-            if ($lineQty !== null) { $merged[$key]['_order_qty_total'] += $lineQty; }
-        }
         $totalQty = toNumber($item['total_qty'] ?? '');
-        $suppliedQty = toNumber(($item['total_qty_supplied'] ?? '') ?: ($item['qty_supplied'] ?? ''));
 
-        if ($orderQty !== null) {
-            $merged[$key]['_order_qty'] = max($merged[$key]['_order_qty'], $orderQty);
+        if ($isFirstGroupedLine) {
+            if (count($orderQtyLines) > 1) {
+                foreach ($orderQtyLines as $orderQtyLine) {
+                    $lineQty = toNumber($orderQtyLine);
+                    if ($lineQty !== null) {
+                        $merged[$key]['_order_qty_total'] += $lineQty;
+                    }
+                }
+                appendPipeLines($merged[$key]['_order_qty_lines'], (string)($item['order_qty'] ?? ''));
+            } else {
+                $originalQty = $totalQty ?? $orderQty;
+                if ($originalQty !== null) {
+                    $merged[$key]['_order_qty_total'] = $originalQty;
+                    $merged[$key]['_order_qty_lines'][] = formatPickSlipNumber($originalQty);
+                }
+            }
+
+            if ($orderQty !== null) {
+                $merged[$key]['_order_qty'] = $orderQty;
+            }
+
+            if ($totalQty !== null) {
+                $merged[$key]['_total_qty'] = $totalQty;
+            }
         }
 
-        if ($totalQty !== null) {
-            $merged[$key]['_total_qty'] = max($merged[$key]['_total_qty'], $totalQty);
-        }
+        $suppliedQty = suppliedQuantity($item);
 
         if ($suppliedQty !== null) {
             $merged[$key]['_qty_supplied'] += $suppliedQty;
@@ -348,8 +365,8 @@ function mergePickSlipItems(array $items): array
             $merged[$key]['_has_no_stock_supply'] = true;
         }
 
+
         appendPipeLines($merged[$key]['_batch_lines'], (string)($item['batch_no'] ?? ''));
-        appendPipeLines($merged[$key]['_order_qty_lines'], (string)($item['order_qty'] ?? ''));
         appendPipeLines($merged[$key]['_unit_lines'], (string)($item['units_per_ctn'] ?? ''));
         appendPipeLines($merged[$key]['_full_ctn_lines'], (string)($item['full_ctn'] ?? ''));
         appendPipeLines($merged[$key]['_location_lines'], (string)($item['location'] ?? ''));
@@ -379,9 +396,9 @@ function mergePickSlipItems(array $items): array
             ? implode(' | ', $item['_order_qty_lines'])
             : (string)($item['order_qty'] ?? '');
 
-        $item['total_qty'] = $item['_order_qty_total'] > 0
-            ? formatPickSlipNumber($item['_order_qty_total'])
-            : ($item['_total_qty'] > 0 ? formatPickSlipNumber($item['_total_qty']) : (string)($item['total_qty'] ?? ''));
+        $item['total_qty'] = $item['_total_qty'] > 0
+            ? formatPickSlipNumber($item['_total_qty'])
+            : ($item['_order_qty_total'] > 0 ? formatPickSlipNumber($item['_order_qty_total']) : (string)($item['total_qty'] ?? ''));
 
         if ($item['_has_qty_supplied']) {
             $item['qty_supplied'] = formatPickSlipNumber($item['_qty_supplied']);
@@ -485,6 +502,34 @@ function formatPickSlipNumber(float $value): string
     }
 
     return rtrim(rtrim(number_format($value, 6, '.', ''), '0'), '.');
+}
+
+function suppliedQuantity(array $item): ?float
+{
+    foreach (['total_qty_supplied', 'qty_supplied'] as $field) {
+        $value = trim((string)($item[$field] ?? ''));
+
+        if ($value === '' || stripos($value, 'NO STOCK') !== false) {
+            continue;
+        }
+
+        $total = 0.0;
+        $found = false;
+
+        foreach (splitPipeLines($value) as $line) {
+            $quantity = toNumber($line);
+            if ($quantity !== null) {
+                $total += $quantity;
+                $found = true;
+            }
+        }
+
+        if ($found) {
+            return $total;
+        }
+    }
+
+    return null;
 }
 
 function richNoStock(string $value): RichText|string

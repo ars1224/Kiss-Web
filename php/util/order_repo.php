@@ -92,8 +92,7 @@ class OrderRepository
             }
 
             if ($this->hasMinimumShelfLifeColumn()) {
-                $params[':min_shelf_life_months'] =
-                    (int)($header['min_shelf_life_months'] ?? 6) === 18 ? 18 : 6;
+                $params[':min_shelf_life_months'] = $this->normalizeShelfLifeMonths($header);
             }
 
             $stmt->execute($params);
@@ -334,8 +333,7 @@ class OrderRepository
         }
 
         if ($this->hasMinimumShelfLifeColumn()) {
-            $params[':min_shelf_life_months'] =
-                (int)($header['min_shelf_life_months'] ?? 6) === 18 ? 18 : 6;
+            $params[':min_shelf_life_months'] = $this->normalizeShelfLifeMonths($header);
         }
 
         $stmt->execute($params);
@@ -346,6 +344,13 @@ class OrderRepository
         $comments = trim((string)($header['order_comments'] ?? ''));
 
         return $comments === '' ? null : $comments;
+    }
+
+    private function normalizeShelfLifeMonths(array $header): int
+    {
+        $months = (int)($header['min_shelf_life_months'] ?? 6);
+
+        return in_array($months, [1, 3, 6, 18], true) ? $months : 6;
     }
 
     private function hasOrderCommentsColumn(): bool
