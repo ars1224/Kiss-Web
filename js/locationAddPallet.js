@@ -57,7 +57,7 @@ function makeRow(data = {}) {
   const tr = document.createElement('tr');
   tr.innerHTML = `
     <td class="select-col"><input type="checkbox" class="row-check"></td>
-    <td><input name="EntryCode6[]" readonly></td>
+    <td class="d-none"><input type="hidden" name="EntryCode6[]"></td>
     <td><input name="Location[]" required></td>
     <td><input name="SKU_Code[]" required></td>
     <td><input name="BatchNo[]"></td>
@@ -77,8 +77,8 @@ function makeRow(data = {}) {
     <td><input name="DateAdded[]" readonly></td>
   `;
 
-  const entryCode = data.EntryCode6 || generate6DigitCode();
-  tr.querySelector('input[name="EntryCode6[]"]').value = entryCode;
+  const entryCode = generate6DigitCode();
+  tr.querySelector('input[name="EntryCode6[]"]').value = 'Assigned on save';
   tr.querySelector('input[name="Location[]"]').value = data.Location || '';
   tr.querySelector('input[name="SKU_Code[]"]').value = data.SKU_Code || '';
   tr.querySelector('input[name="BatchNo[]"]').value = data.BatchNo || '';
@@ -231,11 +231,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const checked = checks.filter(cb => cb.checked);
     const hasChecked = checked.length > 0;
 
-    btnPrintLabels?.classList.toggle('d-none', !hasChecked);
+    btnPrintLabels?.classList.add('d-none');
     duplicateSelectedBtn?.classList.toggle('d-none', !hasChecked);
     removeSelectedBtn?.classList.toggle('d-none', !hasChecked);
     duplicateCount?.classList.toggle('d-none', !hasChecked);
-    printCount?.classList.toggle('d-none', !hasChecked);
+    printCount?.classList.add('d-none');
 
     if (checkAll) {
       checkAll.checked = checks.length > 0 && checked.length === checks.length;
@@ -424,13 +424,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 0);
   });
 
-  btnPrintLabels?.addEventListener('click', () => {
+  btnPrintLabels?.addEventListener('click', async () => {
     const data = selectedDraftRows();
     if (!data.length || !printForm || !labelMode || !labelIds || !labelRows) return;
 
     const copies = parseInt(printCount?.value, 10) || 1;
     if (isNaN(copies) || copies <= 0) {
-      alert('Invalid print quantity.');
+      showTableMessage('Print quantity must be greater than 0.');
       return;
     }
 
@@ -443,7 +443,39 @@ document.addEventListener('DOMContentLoaded', () => {
     labelMode.value = 'draft';
     labelIds.value = '';
     labelRows.value = JSON.stringify(expanded);
-    printForm.requestSubmit();
+
+    const originalButtonText = btnPrintLabels.textContent;
+    btnPrintLabels.disabled = true;
+    btnPrintLabels.textContent = 'Printing...';
+
+    try {
+      const response = await fetch(printForm.action, {
+        method: 'POST',
+        headers: { 'Accept': 'application/json' },
+        body: new FormData(printForm),
+      });
+
+      const rawText = await response.text();
+      let result;
+
+      try {
+        result = JSON.parse(rawText);
+      } catch (error) {
+        throw new Error('Print failed because the server returned an invalid response.');
+      }
+
+      if (!response.ok || !result.ok) {
+        throw new Error(result.message || 'Labels could not be printed.');
+      }
+
+      showTableMessage(result.message || 'Labels printed successfully.', 'success');
+    } catch (error) {
+      console.error(error);
+      showTableMessage(error.message || 'Labels could not be printed. Please try again.');
+    } finally {
+      btnPrintLabels.disabled = false;
+      btnPrintLabels.textContent = originalButtonText;
+    }
   });
 
   if (btnImportCSV && importFile && importForm) {

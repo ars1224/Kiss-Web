@@ -6,11 +6,31 @@
 
     <div class="card orders-import-card">
         <h2>Import Invoice File</h2>
-        <p>Upload .xls, .xlsx, or .csv to auto-fill header details and SKU lines.</p>
+        <p>Drop an invoice below to auto-fill the header details and SKU lines.</p>
 
         <div class="import-row">
-            <input type="file" id="orderFile" accept=".xls,.xlsx,.csv">
-            <button type="button" id="importOrderBtn" class="btn btn-primary">Import File</button>
+            <input
+                type="file"
+                id="orderFile"
+                class="order-import-file-input"
+                accept=".xls,.xlsx,.csv"
+                aria-describedby="orderImportStatus"
+            >
+
+            <label
+                for="orderFile"
+                id="orderImportDropZone"
+                class="order-import-drop-zone"
+                role="button"
+                tabindex="0"
+                aria-describedby="orderImportStatus"
+            >
+                <span class="order-import-drop-icon" aria-hidden="true">&#8681;</span>
+                <span class="order-import-drop-title">Drop invoice file here</span>
+                <span id="orderImportStatus" class="order-import-drop-status" aria-live="polite">
+                    XLS, XLSX or CSV &middot; click to browse
+                </span>
+            </label>
         </div>
     </div>
 
@@ -87,6 +107,8 @@
                 <div class="form-group">
                     <label for="min_shelf_life_months">Minimum Shelf Life</label>
                     <select id="min_shelf_life_months" name="min_shelf_life_months">
+                        <option value="1">1+ month before expiry</option>
+                        <option value="3">3+ months before expiry</option>
                         <option value="6" selected>6+ months before expiry</option>
                         <option value="18">18+ months before expiry</option>
                     </select>

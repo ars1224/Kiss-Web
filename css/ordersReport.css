@@ -270,6 +270,72 @@
     font-weight: 700;
 }
 
+.report-reason-editor {
+    min-width: 260px;
+}
+
+.report-reason-input {
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 56px;
+    padding: 8px 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #0f172a;
+    font: inherit;
+    line-height: 1.35;
+    resize: vertical;
+}
+
+.report-reason-input:focus {
+    border-color: #0f766e;
+    box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.14);
+    outline: none;
+}
+
+.report-reason-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 30px;
+    margin-top: 6px;
+}
+
+.report-reason-save {
+    padding: 6px 13px;
+    border: 0;
+    border-radius: 7px;
+    background: #0f766e;
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.report-reason-save:hover:not(:disabled) {
+    background: #115e59;
+}
+
+.report-reason-save:disabled {
+    cursor: wait;
+    opacity: 0.7;
+}
+
+.report-reason-status {
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.report-reason-status.is-success {
+    color: #15803d;
+}
+
+.report-reason-status.is-error {
+    color: #b91c1c;
+}
+
 .report-link:hover {
     text-decoration: underline;
 }

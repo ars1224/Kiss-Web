@@ -7,6 +7,11 @@ let orderRefreshTimer = null;
 let isLoadingOrder = false;
 let pendingOrderRefresh = false;
 let hasUnsavedPickingChanges = false;
+let hasUnsavedLineChanges = false;
+let hideFinishedRows = false;
+let isLineEditMode = false;
+let lineEditSnapshot = [];
+let deletedOrderItemIds = new Set();
 const ORDER_REFRESH_INTERVAL = 10000;
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -22,19 +27,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     document.getElementById('startPickingBtn')?.addEventListener('click', startPicking);
-    document.getElementById('savePickingBtn')?.addEventListener('click', savePicking);
-    document.getElementById('editOrderBtn')?.addEventListener('click', editCurrentOrder);
-    document.getElementById('deleteOrderBtn')?.addEventListener('click', deleteCurrentOrder);
-    document.getElementById('printLabelsBtn')?.addEventListener('click', printCurrentOrderLabels);
     document.getElementById('checkedBtn')?.addEventListener('click', checkOrder);
     document.getElementById('bookCourierBtn')?.addEventListener('click', bookCourier);
-    document.getElementById('uploadPackingSlipBtn')?.addEventListener('click', uploadPackingSlip);
+    setupPackingSlipDropZone();
     document.getElementById('downloadPickSlipBtn')?.addEventListener('click', downloadCurrentPickSlip);
     document.getElementById('reopenOrderBtn')?.addEventListener('click', reopenOrder);
 
     const orderViewBody = document.getElementById('orderViewBody');
-    orderViewBody?.addEventListener('input', markUnsavedPickingChanges);
-    orderViewBody?.addEventListener('change', markUnsavedPickingChanges);
+    orderViewBody?.addEventListener('input', handleOrderViewInput);
+    orderViewBody?.addEventListener('change', handleOrderViewChange);
+    orderViewBody?.addEventListener('click', handleOrderViewClick);
 
     document.getElementById('courierName')?.addEventListener('change', () => {
         const courier = document.getElementById('courierName').value;
@@ -70,6 +72,155 @@ function markUnsavedPickingChanges(event) {
     }
 }
 
+function markUnsavedLineChanges(event) {
+    const control = event.target;
+
+    if (!control?.matches?.('[data-order-line-field]')) {
+        return;
+    }
+
+    hasUnsavedLineChanges = true;
+
+    const editor = control.closest(
+        '[data-order-line-editor], [data-mobile-order-line-editor]'
+    );
+    const itemId = Number(editor?.dataset.itemId || 0);
+    const item = currentItems.find(entry => Number(entry.id) === itemId);
+    const field = control.dataset.orderLineField;
+
+    if (!item || !field) return;
+
+    const value = field === 'total_qty_supplied'
+        ? String(control.value ?? '').trim()
+        : normalizeAlignedEditorValue(control.value);
+
+    item[field] = value;
+
+    if (field === 'total_qty_supplied') {
+        item.qty_supplied = value;
+    }
+
+    if (field === 'ctn_no' && String(item.picked_ctn_no || '').trim() !== '') {
+        item.picked_ctn_no = value;
+    }
+
+    document.querySelectorAll('[data-order-line-field]').forEach(otherControl => {
+        const otherEditor = otherControl.closest(
+            '[data-order-line-editor], [data-mobile-order-line-editor]'
+        );
+
+        if (
+            otherControl !== control &&
+            Number(otherEditor?.dataset.itemId || 0) === itemId &&
+            otherControl.dataset.orderLineField === field
+        ) {
+            otherControl.value = control.value;
+        }
+    });
+}
+
+function handleOrderViewInput(event) {
+    markUnsavedPickingChanges(event);
+    markUnsavedLineChanges(event);
+}
+
+function handleOrderViewChange(event) {
+    markUnsavedPickingChanges(event);
+    markUnsavedLineChanges(event);
+
+    if (event.target?.matches?.('#hideFinishedRows')) {
+        hideFinishedRows = Boolean(event.target.checked);
+        applyFinishedRowsVisibility();
+    }
+}
+
+function handleOrderViewClick(event) {
+    const button = event.target?.closest?.('[data-order-view-action]');
+    if (!button) return;
+
+    const handlers = {
+        change: startLineEditing,
+        cancelLineChanges: cancelLineEditing,
+        saveLineChanges: saveLineChanges,
+        deleteLine: stageDeleteOrderLine,
+        delete: deleteCurrentOrder,
+        print: printCurrentOrderLabels,
+        save: savePicking
+    };
+    const handler = handlers[button.dataset.orderViewAction];
+
+    if (handler) {
+        handler(button);
+    }
+}
+
+function renderOrderItemControls(status) {
+    const canEdit = ['pending', 'ongoing'].includes(status);
+    const canDelete = !['booking', 'waiting_packing_slip', 'sent'].includes(status);
+    const canPrint = !['sent', 'not_sent'].includes(status);
+    const canSavePicking = status === 'ongoing';
+
+    return `
+        <div class="order-item-controls no-print">
+            ${renderHideFinishedRowsToggle()}
+            <div class="order-item-action-buttons">
+                ${canEdit && !isLineEditMode ? '<button type="button" class="btn btn-edit" id="changeOrderLinesBtn" data-order-view-action="change">Change</button>' : ''}
+                ${canEdit && isLineEditMode ? '<button type="button" class="btn btn-success" id="saveOrderLineChangesBtn" data-order-view-action="saveLineChanges">Save Changes</button>' : ''}
+                ${canEdit && isLineEditMode ? '<button type="button" class="btn btn-secondary" id="cancelOrderLineChangesBtn" data-order-view-action="cancelLineChanges">Cancel</button>' : ''}
+                ${canDelete && !isLineEditMode ? '<button type="button" class="btn btn-delete" id="deleteOrderBtn" data-order-view-action="delete">Delete</button>' : ''}
+                ${canPrint && !isLineEditMode ? '<button type="button" class="btn btn-print" id="printLabelsBtn" data-order-view-action="print">Print Labels</button>' : ''}
+                ${canSavePicking && !isLineEditMode ? '<button type="button" class="btn btn-success" id="savePickingBtn" data-order-view-action="save">Save Picking</button>' : ''}
+            </div>
+        </div>
+    `;
+}
+
+function applyFinishedRowsVisibility() {
+    const toggle = document.getElementById('hideFinishedRows');
+    const summary = document.getElementById('finishedRowsSummary');
+
+    if (!toggle) return;
+
+    const finishedItemIds = new Set();
+
+    document.querySelectorAll(
+        '[data-order-item-row], [data-mobile-order-item-row]'
+    ).forEach(row => {
+        const isFinished = row.classList.contains('picked-row-done');
+
+        if (isFinished) {
+            finishedItemIds.add(String(row.dataset.itemId || ''));
+        }
+
+        row.hidden = toggle.checked && isFinished;
+    });
+
+    if (!summary) return;
+
+    const finishedCount = finishedItemIds.size;
+
+    if (finishedCount === 0) {
+        summary.textContent = 'No finished rows';
+    } else if (toggle.checked) {
+        summary.textContent = `${finishedCount} hidden`;
+    } else {
+        summary.textContent = `${finishedCount} finished`;
+    }
+}
+
+function renderHideFinishedRowsToggle() {
+    return `
+        <div class="order-finished-toggle-row no-print">
+            <label class="order-finished-toggle" for="hideFinishedRows">
+                <input type="checkbox" id="hideFinishedRows" role="switch" aria-controls="orderItemsSection" ${hideFinishedRows ? 'checked' : ''}>
+                <span class="order-finished-toggle-track" aria-hidden="true"></span>
+                <span class="order-finished-toggle-label">Hide finished rows</span>
+                <small id="finishedRowsSummary" aria-live="polite">No finished rows</small>
+            </label>
+        </div>
+    `;
+}
+
 function isOrderEntryActive() {
     const active = document.activeElement;
 
@@ -88,7 +239,12 @@ async function loadOrder(options = {}) {
 
     const silent = Boolean(options.silent);
 
-    if (silent && (hasUnsavedPickingChanges || isOrderEntryActive())) {
+    if (silent && (
+        hasUnsavedPickingChanges ||
+        hasUnsavedLineChanges ||
+        isLineEditMode ||
+        isOrderEntryActive()
+    )) {
         pendingOrderRefresh = true;
         return;
     }
@@ -109,7 +265,12 @@ async function loadOrder(options = {}) {
             return;
         }
 
-        if (silent && (hasUnsavedPickingChanges || isOrderEntryActive())) {
+        if (silent && (
+            hasUnsavedPickingChanges ||
+            hasUnsavedLineChanges ||
+            isLineEditMode ||
+            isOrderEntryActive()
+        )) {
             pendingOrderRefresh = true;
             return;
         }
@@ -131,7 +292,12 @@ async function loadOrder(options = {}) {
 document.addEventListener('focusout', () => {
     if (pendingOrderRefresh) {
         window.setTimeout(() => {
-            if (!hasUnsavedPickingChanges && !isOrderEntryActive()) {
+            if (
+                !hasUnsavedPickingChanges &&
+                !hasUnsavedLineChanges &&
+                !isLineEditMode &&
+                !isOrderEntryActive()
+            ) {
                 loadOrder({ silent: true });
             }
         }, 150);
@@ -322,22 +488,91 @@ async function bookCourier() {
     await loadOrder();
 }
 
-async function uploadPackingSlip() {
+function setupPackingSlipDropZone() {
     const fileInput = document.getElementById('packingSlipFile');
-    const uploadButton = document.getElementById('uploadPackingSlipBtn');
+    const dropZone = document.getElementById('packingSlipDropZone');
 
-    if (!fileInput.files.length) {
-        alert('Please choose a packing slip file.');
+    if (!fileInput || !dropZone) return;
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, event => {
+            event.preventDefault();
+
+            if (!dropZone.classList.contains('is-uploading')) {
+                dropZone.classList.add('is-dragover');
+            }
+        });
+    });
+
+    dropZone.addEventListener('dragleave', event => {
+        if (event.relatedTarget && dropZone.contains(event.relatedTarget)) return;
+        dropZone.classList.remove('is-dragover');
+    });
+
+    dropZone.addEventListener('drop', event => {
+        event.preventDefault();
+        dropZone.classList.remove('is-dragover');
+
+        if (dropZone.classList.contains('is-uploading')) return;
+
+        const files = Array.from(event.dataTransfer?.files || []);
+
+        if (files.length !== 1) {
+            setPackingSlipDropState('error', 'Drop one packing slip at a time.');
+            return;
+        }
+
+        uploadPackingSlip(files[0]);
+    });
+
+    dropZone.addEventListener('keydown', event => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        event.preventDefault();
+
+        if (!dropZone.classList.contains('is-uploading')) {
+            fileInput.click();
+        }
+    });
+
+    fileInput.addEventListener('change', () => {
+        const file = fileInput.files?.[0];
+        if (file) uploadPackingSlip(file);
+    });
+}
+
+function setPackingSlipDropState(state, message) {
+    const dropZone = document.getElementById('packingSlipDropZone');
+    const fileInput = document.getElementById('packingSlipFile');
+    const status = document.getElementById('packingSlipStatus');
+    const uploading = state === 'uploading';
+
+    if (!dropZone || !fileInput || !status) return;
+
+    dropZone.classList.toggle('is-uploading', uploading);
+    dropZone.classList.toggle('is-error', state === 'error');
+    dropZone.setAttribute('aria-busy', uploading ? 'true' : 'false');
+    dropZone.setAttribute('aria-disabled', uploading ? 'true' : 'false');
+    fileInput.disabled = uploading;
+    status.textContent = message;
+}
+
+async function uploadPackingSlip(file) {
+    const fileInput = document.getElementById('packingSlipFile');
+    const extension = String(file?.name || '').split('.').pop().toLowerCase();
+    const allowedExtensions = ['pdf', 'jpg', 'jpeg', 'png', 'xls', 'xlsx'];
+
+    if (!file || !allowedExtensions.includes(extension)) {
+        setPackingSlipDropState('error', 'Use a PDF, JPG, PNG, XLS or XLSX file.');
+        if (fileInput) fileInput.value = '';
         return;
     }
 
-    uploadButton.disabled = true;
-    uploadButton.textContent = 'Uploading...';
+    setPackingSlipDropState('uploading', `Uploading ${file.name}...`);
 
     try {
         const formData = new FormData();
         formData.append('order_id', orderId);
-        formData.append('packing_slip', fileInput.files[0]);
+        formData.append('packing_slip', file);
 
         const response = await fetch('php/functions/upload_packing_slip.php', {
             method: 'POST',
@@ -364,9 +599,8 @@ async function uploadPackingSlip() {
         );
     } catch (error) {
         console.error(error);
-        alert(error.message || 'Upload failed.');
-        uploadButton.disabled = false;
-        uploadButton.textContent = 'Upload & Mark Sent';
+        setPackingSlipDropState('error', error.message || 'Upload failed. Drop the file again to retry.');
+        if (fileInput) fileInput.value = '';
     }
 }
 
@@ -408,8 +642,186 @@ async function reopenOrder() {
     }
 }
 
-function editCurrentOrder() {
-    window.location.href = `orders.php?edit=${encodeURIComponent(orderId)}`;
+function cloneOrderItems(items) {
+    return items.map(item => ({ ...item }));
+}
+
+function isCompletedOrderLine(item) {
+    return String(item?.picked_done || '') === '1' || Boolean(item?.stock_deducted_at);
+}
+
+function startLineEditing() {
+    if (!['pending', 'ongoing'].includes(currentOrder?.status || '')) {
+        alert('This order cannot be changed in its current status.');
+        return;
+    }
+
+    if (hasUnsavedPickingChanges) {
+        alert('Save Picking before changing the order lines.');
+        return;
+    }
+
+    lineEditSnapshot = cloneOrderItems(currentItems);
+    deletedOrderItemIds = new Set();
+    hasUnsavedLineChanges = false;
+    isLineEditMode = true;
+    renderOrder(currentOrder, currentItems);
+}
+
+function cancelLineEditing() {
+    if (hasUnsavedLineChanges && !confirm('Discard the unsaved line changes?')) {
+        return;
+    }
+
+    currentItems = cloneOrderItems(lineEditSnapshot);
+    lineEditSnapshot = [];
+    deletedOrderItemIds = new Set();
+    hasUnsavedLineChanges = false;
+    isLineEditMode = false;
+    pendingOrderRefresh = false;
+    renderOrder(currentOrder, currentItems);
+}
+
+function stageDeleteOrderLine(button) {
+    const itemId = Number(button.dataset.itemId || 0);
+    const item = currentItems.find(entry => Number(entry.id) === itemId);
+
+    if (!item) return;
+
+    if (isCompletedOrderLine(item)) {
+        alert('Completed lines cannot be deleted because their stock has already been processed.');
+        return;
+    }
+
+    collectLineEditorItems();
+
+    if (currentItems.length <= 1) {
+        alert('An order must keep at least one line.');
+        return;
+    }
+
+    currentItems = currentItems.filter(entry => Number(entry.id) !== itemId);
+    deletedOrderItemIds.add(itemId);
+    hasUnsavedLineChanges = true;
+    renderOrder(currentOrder, currentItems);
+}
+
+function collectLineEditorItems() {
+    const mobileView = window.matchMedia('(max-width: 768px)').matches;
+    const selector = mobileView
+        ? '[data-mobile-order-line-editor]'
+        : '[data-order-line-editor]';
+    const rows = document.querySelectorAll(selector);
+    const itemsById = new Map(
+        currentItems.map(item => [Number(item.id), { ...item }])
+    );
+
+    rows.forEach(row => {
+        const itemId = Number(row.dataset.itemId || 0);
+        const item = itemsById.get(itemId);
+
+        if (!item) return;
+
+        row.querySelectorAll('[data-order-line-field]').forEach(control => {
+            const field = control.dataset.orderLineField;
+            const value = field === 'total_qty_supplied'
+                ? String(control.value ?? '').trim()
+                : normalizeAlignedEditorValue(control.value);
+
+            item[field] = value;
+
+            if (field === 'total_qty_supplied') {
+                item.qty_supplied = value;
+            }
+
+            if (field === 'ctn_no' && String(item.picked_ctn_no || '').trim() !== '') {
+                item.picked_ctn_no = value;
+            }
+        });
+    });
+
+    currentItems = currentItems.map(item => itemsById.get(Number(item.id)) || item);
+    return currentItems;
+}
+
+function normalizeAlignedEditorValue(value) {
+    return String(value ?? '')
+        .split(/\n|\|/)
+        .map(entry => entry.trim())
+        .join(' | ');
+}
+
+function lineEditorValue(value) {
+    return String(value ?? '')
+        .split('|')
+        .map(entry => entry.trim())
+        .join('\n');
+}
+
+function getDisplayedCtnNumber(item) {
+    return String(item.picked_ctn_no || '').trim() !== ''
+        ? item.picked_ctn_no
+        : item.ctn_no;
+}
+
+async function saveLineChanges() {
+    const items = collectLineEditorItems().map(item => ({
+            id: Number(item.id),
+            batch_no: item.batch_no || '',
+            total_qty_supplied: item.total_qty_supplied || '',
+            qty_supplied_per_batch: item.qty_supplied_per_batch || '',
+            units_per_ctn: item.units_per_ctn || '',
+            full_ctn: item.full_ctn || '',
+            ctn_no: getDisplayedCtnNumber(item) || '',
+            location: item.location || '',
+            comment: item.comment || ''
+        }));
+    const saveButton = document.getElementById('saveOrderLineChangesBtn');
+
+    if (saveButton) {
+        saveButton.disabled = true;
+        saveButton.textContent = 'Saving...';
+    }
+
+    try {
+        const response = await fetch('php/functions/save_order_line_changes.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                order_id: Number(orderId),
+                items,
+                deleted_item_ids: Array.from(deletedOrderItemIds)
+            })
+        });
+        const rawText = await response.text();
+        let result;
+
+        try {
+            result = JSON.parse(rawText);
+        } catch (error) {
+            throw new Error('The server returned an invalid response.');
+        }
+
+        if (!response.ok || !result.success) {
+            throw new Error(result.message || 'The line changes could not be saved.');
+        }
+
+        isLineEditMode = false;
+        lineEditSnapshot = [];
+        deletedOrderItemIds = new Set();
+        hasUnsavedLineChanges = false;
+        pendingOrderRefresh = false;
+        await loadOrder();
+        showSuccessMessage('Order lines updated.');
+    } catch (error) {
+        console.error(error);
+        alert(error.message || 'The line changes could not be saved.');
+
+        if (saveButton) {
+            saveButton.disabled = false;
+            saveButton.textContent = 'Save Changes';
+        }
+    }
 }
 
 async function deleteCurrentOrder() {
@@ -470,20 +882,16 @@ function renderOrder(order, items) {
     const isPicking = order.status === 'ongoing';
     const status = order.status || 'pending';
 
-    document.getElementById('editOrderBtn').style.display =
-        ['pending', 'ongoing'].includes(status) ? 'inline-block' : 'none';
-
-    document.getElementById('deleteOrderBtn').style.display =
-        !['booking', 'waiting_packing_slip', 'sent'].includes(status) ? 'inline-block' : 'none';
-
-    document.getElementById('printLabelsBtn').style.display =
-        !['sent', 'not_sent'].includes(status) ? 'inline-block' : 'none';
-
     document.getElementById('startPickingBtn').style.display =
         order.status === 'pending' ? 'inline-block' : 'none';
 
-    document.getElementById('savePickingBtn').style.display =
-        order.status === 'ongoing' ? 'inline-block' : 'none';
+    const scanPalletBtn = document.getElementById('scanPalletBtn');
+    if (scanPalletBtn) {
+        scanPalletBtn.style.display = ['pending', 'ongoing'].includes(status) ? 'inline-block' : 'none';
+        scanPalletBtn.disabled = status !== 'ongoing';
+        scanPalletBtn.title = status === 'pending' ? 'Start Picking before scanning pallets.' : '';
+    }
+
 
     document.getElementById('reopenOrderBtn').style.display =
         ['booking', 'waiting_packing_slip'].includes(order.status) ? 'inline-block' : 'none';
@@ -574,11 +982,16 @@ function renderOrder(order, items) {
                 ${order.packing_slip_file ? `<p><strong>Packing Slip:</strong> <a href="${escapeHtml(order.packing_slip_file)}" target="_blank">View File</a></p>` : ''}
             </div>
 
-            <section class="order-lines-card">
+            ${renderOrderItemControls(status)}
+
+            <section class="order-lines-card" id="orderItemsSection">
                 <div class="order-lines-header">
                     <div>
                         <h3>Items</h3>
-                        <p>${items.length} ${items.length === 1 ? 'line' : 'lines'}</p>
+                        <p>
+                            ${items.length} ${items.length === 1 ? 'line' : 'lines'}
+                            ${isLineEditMode ? ' - SKU, description and ordered quantities are read-only' : ''}
+                        </p>
                     </div>
                 </div>
 
@@ -603,9 +1016,10 @@ function renderOrder(order, items) {
                                 : ''
                             }
                             <th class="no-print">Done</th>
+                            ${isLineEditMode ? '<th class="no-print order-line-delete-heading"><span class="visually-hidden">Delete line</span></th>' : ''}
                         </tr>
                     </thead>
-                    <tbody>${renderItems(items, isPicking)}</tbody>
+                    <tbody>${isLineEditMode ? renderEditableItems(items) : renderItems(items, isPicking)}</tbody>
                 </table>
             </div>
             <div class="mobile-order-items" aria-label="Order items">
@@ -614,6 +1028,8 @@ function renderOrder(order, items) {
             </section>
         </div>
     `;
+
+    applyFinishedRowsVisibility();
 }
 
 
@@ -640,7 +1056,202 @@ function formatMultiline(value) {
     return escapeHtml(value).replace(/\r?\n/g, '<br>');
 }
 
+function renderEditableItems(items) {
+    if (!items.length) {
+        const canPrintColumn = ['pending', 'ongoing', 'booking', 'waiting_packing_slip']
+            .includes(currentOrder.status || '');
+        return `<tr class="empty-row"><td colspan="${canPrintColumn ? 15 : 14}">No items found.</td></tr>`;
+    }
+
+    const canPrint = ['pending', 'ongoing', 'booking', 'waiting_packing_slip']
+        .includes(currentOrder.status || '');
+
+    return items.map(item => {
+        const completed = isCompletedOrderLine(item);
+
+        return `
+            <tr class="order-line-editor-row ${completed ? 'picked-row-done' : ''}"
+                data-order-line-editor data-item-id="${Number(item.id)}">
+                <td class="order-line-protected">${formatEmpty(item.sku_code)}</td>
+                <td>${renderLineEditorControl(item, 'batch_no', 'Batch / expiry')}</td>
+                <td class="order-line-protected">${formatEmpty(item.description)}</td>
+                <td class="order-line-protected center-cell">${renderLineEditorReadOnly(item.order_qty)}</td>
+                <td class="order-line-protected center-cell">${renderLineEditorReadOnly(item.total_qty)}</td>
+                <td>${renderLineEditorControl(
+                    item,
+                    'total_qty_supplied',
+                    'Total quantity supplied',
+                    false,
+                    item.total_qty_supplied || item.qty_supplied || ''
+                )}</td>
+                <td>${renderLineEditorControl(
+                    item,
+                    'qty_supplied_per_batch',
+                    'Quantity supplied',
+                    true,
+                    item.qty_supplied_per_batch || item.qty_supplied || ''
+                )}</td>
+                <td>${renderLineEditorControl(item, 'units_per_ctn', 'Units per carton')}</td>
+                <td>${renderLineEditorControl(item, 'full_ctn', 'Number of full cartons')}</td>
+                <td>${renderLineEditorControl(item, 'ctn_no', 'Carton number', true, getDisplayedCtnNumber(item))}</td>
+                <td>${renderLineEditorControl(item, 'location', 'Location')}</td>
+                <td>${renderLineEditorControl(item, 'comment', 'Comment')}</td>
+                ${canPrint ? `
+                    <td class="center-cell no-print">
+                        <button type="button" class="btn-mini btn-print"
+                            onclick="printSkuLabels(${Number(item.id)})">Print</button>
+                    </td>
+                ` : ''}
+                <td class="center-cell no-print">
+                    ${completed ? '<span class="done-text">Done</span>' : ''}
+                </td>
+                <td class="center-cell no-print order-line-delete-cell">
+                    ${renderLineDeleteButton(item)}
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function renderLineEditorControl(item, field, label, multiline = true, valueOverride) {
+    const value = typeof valueOverride === 'undefined' ? item[field] : valueOverride;
+
+    if (!multiline) {
+        return `
+            <input
+                type="text"
+                class="order-line-edit-input"
+                data-order-line-field="${escapeHtml(field)}"
+                value="${escapeHtml(value || '')}"
+                aria-label="${escapeHtml(label)}"
+                autocomplete="off"
+            >
+        `;
+    }
+
+    const editorValue = lineEditorValue(value || '');
+    const rows = Math.min(Math.max(editorValue.split('\n').length, 2), 4);
+
+    return `
+        <textarea
+            class="order-line-edit-input order-line-edit-textarea"
+            data-order-line-field="${escapeHtml(field)}"
+            rows="${rows}"
+            aria-label="${escapeHtml(label)}"
+            autocomplete="off"
+        >${escapeHtml(editorValue)}</textarea>
+    `;
+}
+
+function renderLineEditorReadOnly(value) {
+    const lines = splitAlignedLines(value || '');
+
+    if (!lines.length || lines.every(line => line === '')) {
+        return '<span class="muted-dash">-</span>';
+    }
+
+    return lines
+        .map(line => `<span class="order-line-readonly-value">${escapeHtml(line || '')}</span>`)
+        .join('');
+}
+
+function renderLineDeleteButton(item) {
+    const completed = isCompletedOrderLine(item);
+    const sku = String(item.sku_code || 'order line');
+    const title = completed
+        ? 'Completed lines cannot be deleted'
+        : `Delete ${sku}`;
+
+    return `
+        <button
+            type="button"
+            class="order-line-delete-btn"
+            data-order-view-action="deleteLine"
+            data-item-id="${Number(item.id)}"
+            aria-label="${escapeHtml(title)}"
+            title="${escapeHtml(title)}"
+            ${completed ? 'disabled' : ''}
+        >&times;</button>
+    `;
+}
+
+function renderEditableMobileItems(items) {
+    if (!items.length) return '<p class="mobile-order-empty">No items found.</p>';
+
+    return items.map(item => {
+        const completed = isCompletedOrderLine(item);
+
+        return `
+            <article class="mobile-order-card mobile-order-line-editor ${completed ? 'picked-row-done' : ''}"
+                data-mobile-order-line-editor data-item-id="${Number(item.id)}">
+                <header class="mobile-order-card-header">
+                    <h4>${formatEmpty(item.sku_code)}</h4>
+                    ${renderLineDeleteButton(item)}
+                </header>
+                <div class="mobile-order-description">
+                    <span>Description</span>
+                    <strong>${formatEmpty(item.description)}</strong>
+                </div>
+                <dl class="mobile-order-details">
+                    ${renderMobileLineEditorReadOnly('Order Qty', item.order_qty)}
+                    ${renderMobileLineEditorReadOnly('Total Order Qty', item.total_qty)}
+                    ${renderMobileLineEditorDetail(item, 'batch_no', 'Batch / Expiry')}
+                    ${renderMobileLineEditorDetail(
+                        item,
+                        'total_qty_supplied',
+                        'Total Qty Supplied',
+                        false,
+                        item.total_qty_supplied || item.qty_supplied || ''
+                    )}
+                    ${renderMobileLineEditorDetail(
+                        item,
+                        'qty_supplied_per_batch',
+                        'Qty Supplied',
+                        true,
+                        item.qty_supplied_per_batch || item.qty_supplied || ''
+                    )}
+                    ${renderMobileLineEditorDetail(item, 'units_per_ctn', 'Units / CTN')}
+                    ${renderMobileLineEditorDetail(item, 'full_ctn', 'No. Full CTN')}
+                    ${renderMobileLineEditorDetail(item, 'ctn_no', 'CTN #', true, getDisplayedCtnNumber(item))}
+                    ${renderMobileLineEditorDetail(item, 'location', 'Location', true, undefined, 'mobile-location-value')}
+                    ${renderMobileLineEditorDetail(item, 'comment', 'Comment', true, undefined, 'mobile-comment-value')}
+                </dl>
+                ${completed ? '<div class="mobile-order-line-complete">Completed line - fields can be changed; deletion is locked</div>' : ''}
+            </article>
+        `;
+    }).join('');
+}
+
+function renderMobileLineEditorReadOnly(label, value) {
+    return `
+        <div class="mobile-order-detail order-line-protected">
+            <dt>${escapeHtml(label)}</dt>
+            <dd>${renderLineEditorReadOnly(value)}</dd>
+        </div>
+    `;
+}
+
+function renderMobileLineEditorDetail(
+    item,
+    field,
+    label,
+    multiline = true,
+    valueOverride,
+    extraClass = ''
+) {
+    return `
+        <div class="mobile-order-detail mobile-order-edit-detail ${escapeHtml(extraClass)}">
+            <dt>${escapeHtml(label)}</dt>
+            <dd>${renderLineEditorControl(item, field, label, multiline, valueOverride)}</dd>
+        </div>
+    `;
+}
+
 function renderMobileItems(items, isPicking) {
+    if (isLineEditMode) {
+        return renderEditableMobileItems(items);
+    }
+
     if (!items.length) return '<p class="mobile-order-empty">No items found.</p>';
 
     const canPrint = ['pending', 'ongoing', 'booking', 'waiting_packing_slip']

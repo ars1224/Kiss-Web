@@ -105,7 +105,7 @@
         <div class="orders-report-section-heading">
             <div>
                 <h2>Not Sent Orders</h2>
-                <p>Completed orders that did not ship because of no stock or another recorded reason.</p>
+                <p>Enter or update the reason, then click Save. Saved comments are included in the PDF report.</p>
             </div>
         </div>
 
@@ -118,7 +118,7 @@
                         <th>Customer</th>
                         <th>Order Date</th>
                         <th>Delivery Date</th>
-                        <th>Reason</th>
+                        <th>Reason / Comment</th>
                     </tr>
                 </thead>
 
@@ -164,7 +164,7 @@
         <div class="orders-report-section-heading">
             <div>
                 <h2>Orders Still Not Sent (Pending)</h2>
-                <p>Pending or in-progress orders that still need picking, booking, packing slip upload, or follow-up.</p>
+                <p>Type why the order has not been sent yet, then click Save. The comment stays with the order.</p>
             </div>
         </div>
 
@@ -177,7 +177,7 @@
                         <th>Order Date</th>
                         <th>Delivery Date</th>
                         <th>Status</th>
-                        <th>Reason</th>
+                        <th>Reason / Comment</th>
                     </tr>
                 </thead>
                 <tbody id="reportNotSentBody">

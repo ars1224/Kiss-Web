@@ -53,11 +53,12 @@ function pl_all(?string $search = null): array
                    OR BatchNo    LIKE ?
                    OR ExpiryDate LIKE ?
                    OR Comments   LIKE ?
+                   OR PalletID   LIKE ?
                 ORDER BY Location, SKU_Code, BatchNo, ExpiryDate, COALESCE(Comments,'')
             ";
 
             $stmt = $pdo->prepare($sql);
-            $stmt->execute([$like, $like, $like, $like, $like]);
+            $stmt->execute([$like, $like, $like, $like, $like, $like]);
 
         } else {
 
@@ -91,11 +92,12 @@ function pl_all(?string $search = null): array
                OR BatchNo    LIKE ?
                OR ExpiryDate LIKE ?
                OR Comments   LIKE ?
+               OR PalletID   LIKE ?
             ORDER BY Location, SKU_Code, BatchNo, ExpiryDate, COALESCE(Comments,'')
         ";
 
         $stmt = $pdo->prepare($sql);
-        $stmt->execute([$like, $like, $like, $like, $like]);
+        $stmt->execute([$like, $like, $like, $like, $like, $like]);
 
     } else {
 

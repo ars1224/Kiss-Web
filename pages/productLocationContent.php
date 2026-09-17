@@ -59,6 +59,9 @@ $qs = ($q !== '') ? ('?q=' . urlencode($q)) : '';
                 <a href="addPalletLocation.php" class="btn btn-outline-secondary">Add Pallet</a>
             <?php endif; ?>
 
+            <button type="button" id="scanPalletBtn" data-scan-context="location" class="btn btn-success">
+                <i class="fa-solid fa-camera"></i> Scan Pallet
+            </button>
             <button type="button" id="btnSelectAllMobile" class="btn btn-outline-secondary mobile-select-all">
                 Select All
             </button>
@@ -175,6 +178,7 @@ $qs = ($q !== '') ? ('?q=' . urlencode($q)) : '';
                    <tr
     data-id="<?= $eid ?>"
     data-inventory-type="<?= h($r['InventoryType'] ?? inventoryType()) ?>"
+    data-pallet-id="<?= h($r['PalletID'] ?? '') ?>"
 >
 
                     <td class="selectCheckBox" data-label="Select">
@@ -221,7 +225,6 @@ $qs = ($q !== '') ? ('?q=' . urlencode($q)) : '';
                     <td data-label="Comments">
                         <?= h($r['Comments'] ?? '') ?>
                     </td>
-
                 </tr>
                 <?php endforeach; ?>
             <?php endif; ?>
@@ -499,3 +502,5 @@ $expiryRequired =
 
     </div>
 </div>
+
+<?php include __DIR__ . '/productLocationPalletScanner.php'; ?>

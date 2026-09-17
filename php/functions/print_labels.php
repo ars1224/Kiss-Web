@@ -10,20 +10,21 @@ ob_start();
 require_once __DIR__ . '/../conn/db.php';
 require_once __DIR__ . '/../../vendor/autoload.php'; // TCPDF
 require_once __DIR__ . '/../util/inventory_helper.php';
+require_once __DIR__ . '/../util/pallet_id_helper.php';
 
 $table = inventoryTable();
 
 $requestedInventory = strtolower(trim(
-    (string)($_GET['inventory'] ?? $_POST['inventory'] ?? '')
+    (string)($_GET['inventory'] ?? $_POST['inventory'] ?? $_GET['InventoryType'] ?? $_POST['InventoryType'] ?? '')
 ));
 
 if ($table === 'all') {
 
-    if (in_array($requestedInventory, ['components', 'component', 'packaging'], true)) {
+    if (in_array($requestedInventory, ['components', 'component', 'packaging'], true) || str_contains($requestedInventory, 'component')) {
 
         $table = 'componentlocation';
 
-    } elseif (in_array($requestedInventory, ['rm', 'raw', 'rawmat', 'raw_materials'], true)) {
+    } elseif (in_array($requestedInventory, ['rm', 'raw', 'rawmat', 'raw_materials'], true) || str_contains($requestedInventory, 'raw')) {
 
         $table = 'rmlocation';
 
@@ -75,7 +76,7 @@ function pdf_center_fit(
 /**
  * Left aligned text that auto-shrinks to fit width.
  */
-function pdf_right_fit(
+function pdf_left_fit(
   TCPDF $pdf,
   float $x,
   float $y,
@@ -98,7 +99,7 @@ function pdf_right_fit(
   }
 
   $pdf->SetXY($x, $y);
-  $pdf->Cell($w, $h, $text, 0, 1, 'R', false, '', 0, false, 'T', 'M');
+  $pdf->Cell($w, $h, $text, 0, 1, 'L', false, '', 0, false, 'T', 'M');
 }
 
 // -------------------- Input --------------------
@@ -120,7 +121,7 @@ if ($mode === 'saved') {
   $in  = implode(',', array_fill(0, count($ids), '?'));
 
   $sql = "
-    SELECT EntryID, Location, SKU_Code, BatchNo, ExpiryDate, UnitType, QtyPerCtn, TotalQty, Comments, LastUpdated
+    SELECT EntryID, PalletID, Location, SKU_Code, BatchNo, ExpiryDate, UnitType, QtyPerCtn, TotalQty, Comments, LastUpdated
     FROM {$table}
     WHERE EntryID IN ($in)
     ORDER BY FIELD(EntryID, " . implode(',', $ids) . ")
@@ -152,6 +153,7 @@ if ($mode === 'saved') {
       'TotalQty'   => (int)($r['TotalQty'] ?? 0),
       'Comments'   => (string)($r['Comments'] ?? ''),
       'LastUpdated'=> (string)($r['LastUpdated'] ?? ''),
+      'PalletID'   => null,
     ];
   }
 
@@ -204,6 +206,7 @@ $boxH = $pageH - ($PAD_T + $PAD_B);
   $exp      = trim((string)($r['ExpiryDate'] ?? ''));
   $qty      = (int)($r['TotalQty'] ?? 0);
   $note     = trim((string)($r['Comments'] ?? ''));
+  $palletId = trim((string)($r['PalletID'] ?? ''));
 
   $bigTop = $sku !== '' ? $sku : '-';
   $mid    = trim(($batch !== '' ? $batch : '') . ($exp !== '' ? "  EXP $exp" : ''));
@@ -217,20 +220,37 @@ $updateRaw = trim((string)($r['LastUpdated'] ?? ''));
   // === OPTIONAL DEBUG BOX (uncomment to see content area) ===
    //$pdf->Rect($boxX, $boxY, $boxW, $boxH);
 
-  // TOP SKU (big)
-  pdf_center_fit($pdf, $boxX, 15, $boxW, 20, $bigTop, 'helvetica', 'B', 105, 65);
+  $textX = $boxX + 8;
+  $textWidth = max(20, $boxW - 16);
+  $qrX = $boxX + $boxW - 48;
+  $qrY = 88;
+  $detailWidth = $palletId !== '' ? max(20, $qrX - $textX - 8) : $textWidth;
 
-  // MID batch + exp
-  pdf_center_fit($pdf, $boxX, 60, $boxW, 20, $mid, 'helvetica', 'B', 20, 16);
-  
-  // BIG QTY
-  pdf_center_fit($pdf, $boxX, 75, $boxW, 20, $bigQty, 'helvetica', 'B', 90, 50);
+  // All pallet details are aligned to the left edge.
+  pdf_left_fit($pdf, $textX, 15, $textWidth, 20, $bigTop, 'helvetica', 'B', 105, 65);
+  pdf_left_fit($pdf, $textX, 58, $textWidth, 20, $mid, 'helvetica', 'B', 20, 16);
+  pdf_left_fit($pdf, $textX, 73, $detailWidth, 20, $bigQty, 'helvetica', 'B', 90, 50);
 
-  // BOTTOM location
+  if ($palletId !== '') {
+    $qrStyle = [
+      'border' => 0,
+      'padding' => 1,
+      'fgcolor' => [0, 0, 0],
+      'bgcolor' => [255, 255, 255],
+      'module_width' => 1,
+      'module_height' => 1,
+    ];
+
+    // Keep the Pallet ID immediately above its QR code.
+    pdf_center_fit($pdf, $qrX - 6, 76, 54, 10, $palletId, 'helvetica', 'B', 12, 9);
+    $pdf->write2DBarcode('KISS:PALLET:' . $palletId, 'QRCODE,H', $qrX, $qrY, 42, 42, $qrStyle, 'N');
+  }
+
+  // LOCATION left of the QR code
    $loc = trim($location . ($update !== '' ? "  •  Updated: $update" : ''));
-  pdf_center_fit($pdf, $boxX, 105, $boxW, 20, $loc, 'helvetica', 'B', 25, 14);
+  pdf_left_fit($pdf, $textX, 104, $detailWidth, 18, $loc, 'helvetica', 'B', 24, 13);
 
-  pdf_right_fit($pdf, $boxX, 2, $boxW, 20, $note, 'helvetica', 'B', 15, 12);
+  pdf_left_fit($pdf, $textX, 132, $detailWidth, 14, $note, 'helvetica', 'B', 15, 10);
 }
 
 
@@ -243,17 +263,29 @@ if (@file_put_contents($tmpPdf, $pdfBytes) === false) {
 }
 
 $cmd = 'C:\\print\\print_pdf.cmd ' . escapeshellarg($tmpPdf) . ' 2>&1';
-$out = shell_exec($cmd);
+$outputLines = [];
+$exitCode = 1;
+exec($cmd, $outputLines, $exitCode);
+$output = implode(PHP_EOL, $outputLines);
 
 @unlink($tmpPdf);
+
+if ($exitCode !== 0) {
+  error_log('Label print failed (exit ' . $exitCode . '): ' . $output);
+  json_fail(500, 'Labels could not be printed. Please try again or contact an administrator.');
+}
 
 // -------------------- Return JSON ALWAYS --------------------
 if (ob_get_level()) { ob_clean(); }
 header('Content-Type: application/json; charset=utf-8');
 
+$labelCount = count($rows);
+$message = $labelCount === 1
+  ? 'Label printed successfully.'
+  : "{$labelCount} labels printed successfully.";
+
 echo json_encode([
   'ok'      => true,
-  'message' => 'Printed',
-  'debug'   => $out
+  'message' => $message
 ]);
 exit;

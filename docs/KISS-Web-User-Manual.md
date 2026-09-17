@@ -328,6 +328,8 @@ Buttons include:
 - Clear Form
 - Save All
 
+Printing selected draft rows keeps the user on Add Pallet and retains all entered row data. A green message confirms a successful print, while a red message reports a printing error.
+
 When saved, rows are inserted or merged with an existing matching row. A row is considered matching when Location, SKU, Batch, Expiry, QtyPerCtn, and Comments match. Matching rows have their quantity increased instead of creating a duplicate row.
 
 Expiry is required for products and raw materials for non-admin users. Admin users may leave expiry blank.
@@ -377,7 +379,7 @@ Allowed statuses are:
 
 The Orders List is loaded from `orders_list.php` and `pages/ordersListContent.php`.
 
-It shows all orders with:
+It can show orders with:
 
 - Invoice
 - Date
@@ -398,7 +400,9 @@ The page includes status cards for:
 - Sent
 - Not Sent
 
-Users can filter by status and search by invoice, customer, or order number.
+By default, the table shows only active Pending, Ongoing, Booking, and Waiting Slip orders. Sent and Not Sent orders remain available by clicking their status cards or choosing them in **Filter Status**.
+
+With **Active Orders (Default)** selected, searching checks every status, including Sent and Not Sent. Users can search by invoice, customer, order number, or SKU. A SKU search shows every order containing a matching SKU, so staff can see the related invoice numbers and customers. Matching is case-insensitive and supports partial SKU text. If a specific status is selected, search is limited to that status.
 
 ### Create Order
 
@@ -442,6 +446,7 @@ It supports:
 
 - Start Picking
 - Save Picking
+- Hide finished rows on desktop and mobile
 - Edit pending or ongoing orders
 - Delete eligible orders
 - Reopen orders to add items
@@ -501,6 +506,10 @@ It provides:
 - Summary cards
 - Products Not Supplied
 - Orders Still Not Sent
+
+In **Not Sent Orders** and **Orders Still Not Sent**, type the explanation in the **Reason / Comment** box and click **Save**. The saved reason remains attached to the order when the report is generated again and is included in the PDF export. To remove a reason, clear the box and click **Save**.
+
+Each reason can contain up to 255 characters.
 
 The report API calculates sent orders, not sent orders, ordered quantity, supplied quantity, and not supplied quantity.
 
@@ -802,6 +811,8 @@ When rounding is enabled, the system tries to allocate full cartons using QtyPer
 5. Enter or confirm carton numbers where required.
 6. Mark picked lines as done.
 7. Click **Save Picking**.
+
+The **Hide finished rows** switch and the available **Edit**, **Delete**, **Print Labels**, and **Save Picking** buttons are grouped together between the customer/order information and the Items table. Use the switch to temporarily remove saved Done items from the Order View list. Newly checked rows remain visible until **Save Picking** records them. The switch continues to apply when Order View automatically refreshes, and switching it off shows every row again.
 
 While carton numbers or Done checkboxes have unsaved changes, Order View pauses its automatic refresh so those entries remain intact. Automatic refresh resumes after **Save Picking** succeeds.
 

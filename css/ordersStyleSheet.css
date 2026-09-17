@@ -30,6 +30,8 @@
 
 .import-row {
     display: flex;
+    width: 100%;
+    max-width: 680px;
     gap: 12px;
     align-items: center;
     flex-wrap: wrap;
@@ -520,6 +522,122 @@
     padding: 10px 12px;
 }
 
+.packing-slip-panel {
+    margin: 16px 0;
+    padding: 16px;
+    border: 1px solid #bfdbfe;
+    border-radius: 12px;
+    background: #eff6ff;
+}
+
+.packing-slip-panel h3 {
+    margin: 0 0 6px;
+}
+
+.packing-slip-panel > p {
+    margin: 0 0 12px;
+    color: #1e40af;
+}
+
+.packing-slip-row {
+    width: 100%;
+    max-width: 680px;
+}
+
+.packing-slip-file-input,
+.order-import-file-input {
+    display: none;
+}
+
+.packing-slip-drop-zone,
+.order-import-drop-zone {
+    display: flex;
+    width: 100%;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 150px;
+    padding: 24px;
+    border: 2px dashed #60a5fa;
+    border-radius: 12px;
+    background: #ffffff;
+    color: #1e3a8a;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
+}
+
+.packing-slip-drop-zone:hover,
+.packing-slip-drop-zone:focus-visible,
+.packing-slip-drop-zone.is-dragover,
+.order-import-drop-zone:hover,
+.order-import-drop-zone:focus-visible,
+.order-import-drop-zone.is-dragover {
+    border-color: #2563eb;
+    background: #dbeafe;
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15);
+    outline: none;
+}
+
+.packing-slip-drop-zone.is-uploading,
+.order-import-drop-zone.is-uploading {
+    border-style: solid;
+    cursor: wait;
+    opacity: 0.78;
+}
+
+.packing-slip-drop-zone.is-error,
+.order-import-drop-zone.is-error {
+    border-color: #dc2626;
+    background: #fff1f2;
+    color: #991b1b;
+}
+
+.order-import-drop-zone.is-success {
+    border-color: #16a34a;
+    background: #f0fdf4;
+    color: #166534;
+}
+
+.packing-slip-drop-icon,
+.order-import-drop-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    margin-bottom: 10px;
+    border-radius: 50%;
+    background: #dbeafe;
+    color: #1d4ed8;
+    font-size: 30px;
+    line-height: 1;
+}
+
+.packing-slip-drop-zone.is-error .packing-slip-drop-icon,
+.order-import-drop-zone.is-error .order-import-drop-icon {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+.order-import-drop-zone.is-success .order-import-drop-icon {
+    background: #dcfce7;
+    color: #15803d;
+}
+
+.packing-slip-drop-title,
+.order-import-drop-title {
+    font-size: 17px;
+    font-weight: 700;
+}
+
+.packing-slip-drop-status,
+.order-import-drop-status {
+    margin-top: 5px;
+    font-size: 13px;
+    font-weight: 500;
+}
+
 .success-message {
     background: #d7eadf;
     border: 1px solid #b7d8c4;
@@ -885,6 +1003,237 @@
     backdrop-filter: blur(8px);
 }
 
+.order-item-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-width: 0;
+    margin: 0 0 16px;
+    padding: 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    background: #ffffff;
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+}
+
+.order-finished-toggle-row {
+    display: flex;
+    flex: 1 1 auto;
+    justify-content: flex-start;
+    min-width: 0;
+}
+
+.order-item-action-buttons {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.order-line-editor-row td {
+    vertical-align: top;
+}
+
+.order-line-editor-row.picked-row-done td:not(.no-print) {
+    color: inherit;
+    text-decoration: none;
+}
+
+.order-line-editor-row.picked-row-done .order-line-edit-input {
+    color: #0f172a;
+}
+
+.mobile-order-line-editor.picked-row-done {
+    opacity: 1 !important;
+}
+
+.order-line-protected {
+    background: #f8fafc !important;
+    color: #475569;
+}
+
+.order-line-edit-input {
+    display: block;
+    width: 100%;
+    min-width: 58px;
+    min-height: 38px;
+    margin: 0;
+    padding: 8px;
+    border: 1px solid #94a3b8;
+    border-radius: 7px;
+    background: #ffffff;
+    color: #0f172a;
+    font: inherit;
+    font-size: 13px;
+    line-height: 1.3;
+}
+
+.order-line-edit-textarea {
+    min-height: 58px;
+    resize: vertical;
+}
+
+.order-line-edit-input:hover {
+    border-color: #64748b;
+}
+
+.order-line-edit-input:focus {
+    border-color: #2563eb;
+    outline: 3px solid rgba(37, 99, 235, 0.18);
+    outline-offset: 1px;
+}
+
+.order-line-readonly-value {
+    display: block;
+    min-height: 20px;
+}
+
+.order-line-readonly-value + .order-line-readonly-value {
+    margin-top: 4px;
+    padding-top: 4px;
+    border-top: 1px solid #e2e8f0;
+}
+
+.order-line-delete-heading,
+.order-line-delete-cell {
+    width: 44px;
+    min-width: 44px;
+    padding-right: 6px !important;
+    padding-left: 6px !important;
+}
+
+.order-line-delete-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border: 1px solid #fecaca;
+    border-radius: 50%;
+    background: #fff1f2;
+    color: #b91c1c;
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.order-line-delete-btn:hover:not(:disabled) {
+    border-color: #ef4444;
+    background: #fee2e2;
+}
+
+.order-line-delete-btn:focus-visible {
+    outline: 3px solid rgba(220, 38, 38, 0.24);
+    outline-offset: 2px;
+}
+
+.order-line-delete-btn:disabled {
+    border-color: #e2e8f0;
+    background: #f8fafc;
+    color: #94a3b8;
+    cursor: not-allowed;
+}
+
+.mobile-order-line-editor .order-line-delete-btn {
+    flex: 0 0 auto;
+    width: 40px;
+    height: 40px;
+}
+
+.mobile-order-edit-detail .order-line-edit-input {
+    min-width: 0;
+    font-size: 16px;
+}
+
+.mobile-order-line-complete {
+    margin-top: 12px;
+    padding: 9px 10px;
+    border-radius: 9px;
+    background: #f1f5f9;
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 700;
+    text-align: center;
+}
+
+.order-finished-toggle {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 40px;
+    padding: 7px 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    background: #f8fafc;
+    color: #334155;
+    cursor: pointer;
+    user-select: none;
+}
+
+.order-finished-toggle input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+}
+
+.order-finished-toggle-track {
+    position: relative;
+    flex: 0 0 auto;
+    width: 42px;
+    height: 24px;
+    border-radius: 999px;
+    background: #cbd5e1;
+    transition: background 160ms ease;
+}
+
+.order-finished-toggle-track::after {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #ffffff;
+    box-shadow: 0 1px 4px rgba(15, 23, 42, 0.28);
+    content: '';
+    transition: transform 160ms ease;
+}
+
+.order-finished-toggle input:checked + .order-finished-toggle-track {
+    background: #16a34a;
+}
+
+.order-finished-toggle input:checked + .order-finished-toggle-track::after {
+    transform: translateX(18px);
+}
+
+.order-finished-toggle input:focus-visible + .order-finished-toggle-track {
+    outline: 3px solid rgba(37, 99, 235, 0.3);
+    outline-offset: 2px;
+}
+
+.order-finished-toggle-label {
+    font-size: 13px;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+.order-finished-toggle small {
+    min-width: 74px;
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 700;
+    text-align: right;
+    white-space: nowrap;
+}
+
 #orderViewBody {
     min-width: 0;
     position: relative;
@@ -1183,6 +1532,47 @@
 }
 
 @media (max-width: 900px) {
+    .order-item-controls {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .order-item-action-buttons {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        width: 100%;
+    }
+
+    .order-item-action-buttons .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        min-width: 0;
+    }
+
+    .order-finished-toggle {
+        width: 100%;
+    }
+
+    .order-finished-toggle-label {
+        flex: 1 1 auto;
+        white-space: normal;
+    }
+
+    .order-finished-toggle small {
+        min-width: 0;
+    }
+
+    .order-finished-toggle-track {
+        width: 46px;
+        height: 26px;
+    }
+
+    .order-finished-toggle input:checked + .order-finished-toggle-track::after {
+        transform: translateX(20px);
+    }
+
     .orders-list-top {
         flex-direction: column;
         align-items: flex-start;

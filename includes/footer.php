@@ -9,7 +9,7 @@
     <script src="js/core/helpers.js"></script>
     <script src="js/core/sidebar.js"></script>
     <script src="js/core/mobileFixedToolbar.js?v=<?= filemtime(__DIR__ . '/../js/core/mobileFixedToolbar.js') ?>"></script>
-    <script src="js/inventory/selection.js"></script>
+    <script src="js/inventory/selection.js?v=<?= filemtime(__DIR__ . '/../js/inventory/selection.js') ?>"></script>
     <script src="js/inventory/footerTotals.js"></script>
     <script src="js/dialogs/editSheet.js"></script>
     <script src="js/dialogs/qtySheet.js"></script>

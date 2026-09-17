@@ -5,6 +5,7 @@ require_once __DIR__ . '/../conn/db.php';
 require_once __DIR__ . '/../conn/requestHelpers.php';
 require_once __DIR__ . '/../util/transaction_repo.php';
 require_once __DIR__ . '/../util/inventory_helper.php';
+require_once __DIR__ . '/../util/pallet_id_helper.php';
 
 $table = inventoryTable();
 
@@ -78,11 +79,16 @@ function trigger_silent_print_labels(array $ids, string $inventoryType): void {
     $ids = array_values(array_filter($ids, fn($x) => $x > 0));
     if (!$ids) return;
 
-    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-    $host   = $_SERVER['HTTP_HOST'] ?? '127.0.0.1';
+    // The browser may use HTTPS, but this request never leaves the XAMPP server.
+    // Loopback HTTP avoids relying on PHP's TLS trust store for our local CA.
+    $host = (string)($_SERVER['HTTP_HOST'] ?? '192.168.5.48');
+    $requestHost = preg_replace('/:\d+$/', '', trim($host));
+    if (!is_string($requestHost) || $requestHost === '') $requestHost = '192.168.5.48';
     $base   = rtrim(dirname($_SERVER['SCRIPT_NAME'] ?? ''), '/\\');
 
-    $url = $scheme . '://' . $host . $base . '/print_labels.php';
+    $socketPath = '/' . ltrim($base . '/print_labels.php', '/');
+    $url = 'http://127.0.0.1' . $socketPath;
+
 
     $post = http_build_query([
         'mode'      => 'saved',
@@ -95,12 +101,8 @@ function trigger_silent_print_labels(array $ids, string $inventoryType): void {
         $cookieHeader = "Cookie: " . session_name() . "=" . session_id() . "\r\n";
     }
 
-    $urlParts = parse_url($url);
-    $socketHost = (string)($urlParts['host'] ?? '127.0.0.1');
-    $socketPath = (string)($urlParts['path'] ?? '/');
-    $isHttps = strtolower((string)($urlParts['scheme'] ?? 'http')) === 'https';
-    $socketPort = (int)($urlParts['port'] ?? ($isHttps ? 443 : 80));
-    $socketTarget = ($isHttps ? 'ssl://' : '') . $socketHost;
+    $socketTarget = '127.0.0.1';
+    $socketPort = 80;
 
     $socket = @fsockopen($socketTarget, $socketPort, $errorCode, $errorMessage, 1.0);
 
@@ -113,16 +115,33 @@ function trigger_silent_print_labels(array $ids, string $inventoryType): void {
 
     $request =
         "POST {$socketPath} HTTP/1.1\r\n" .
-        "Host: {$host}\r\n" .
+        "Host: {$requestHost}\r\n" .
         "Content-Type: application/x-www-form-urlencoded\r\n" .
         $cookieHeader .
         "Content-Length: " . strlen($post) . "\r\n" .
         "Connection: close\r\n\r\n" .
         $post;
 
-    stream_set_blocking($socket, false);
-    @fwrite($socket, $request);
+    stream_set_blocking($socket, true);
+    stream_set_timeout($socket, 2);
+
+    $requestLength = strlen($request);
+    $written = 0;
+    while ($written < $requestLength) {
+        $chunkLength = @fwrite($socket, substr($request, $written));
+        if ($chunkLength === false || $chunkLength === 0) {
+            break;
+        }
+        $written += $chunkLength;
+    }
+
+    @fflush($socket);
     @fclose($socket);
+
+    if ($written !== $requestLength) {
+        error_log("Silent print queue write failed ({$written}/{$requestLength} bytes); URL: {$url}");
+        return;
+    }
 
     error_log('Silent print queued: ' . $url);
     error_log('Silent print IDs: ' . json_encode($ids));
@@ -254,6 +273,7 @@ try {
 
         if ($existing) {
             $entryId = (int)$existing['EntryID'];
+            ensurePalletId($pdo, $table, $entryId);
             $before  = (int)$existing['TotalQty'];
             $after   = $before + $totalAdd;
 
@@ -288,6 +308,7 @@ try {
         } else {
             $ins->execute([$loc, $sku, $batch, $expiry, $unit, $qtyctn, $totalAdd, $comments]);
             $entryId = (int)$pdo->lastInsertId();
+            ensurePalletId($pdo, $table, $entryId);
 
             // ✅ Queue for silent printing
             $printIds[] = $entryId;

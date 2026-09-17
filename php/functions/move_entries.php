@@ -7,6 +7,7 @@ require_once __DIR__ . '/../util/product_location_repo.php';
 require_once __DIR__ . '/../util/transaction_repo.php';
 require_once __DIR__ . '/../util/inventory_helper.php';
 require_once __DIR__ . '/../util/notification_helper.php';
+require_once __DIR__ . '/../util/pallet_id_helper.php';
 
 $postedType = strtolower(trim((string)($_POST['InventoryType'] ?? '')));
 $role = strtolower(trim(currentUserRole()));
@@ -113,6 +114,7 @@ try {
         $exp    = $row['ExpiryDate'];
         $qpc    = (int)$row['QtyPerCtn'];
         $qty    = (int)$row['TotalQty'];
+        $sourcePalletId = ensurePalletId($pdo, $table, $id);
 
         if ($oldLoc === $newLoc) {
             continue;
@@ -126,8 +128,18 @@ try {
 
         if ($target) {
             // Merge
+            $targetEntryId = (int)$target['EntryID'];
+            $targetPalletId = ensurePalletId($pdo, $table, $targetEntryId);
             $targetQty = (int)$target['TotalQty'];
-            $updQty->execute([$qty, (int)$target['EntryID']]);
+            $updQty->execute([$qty, $targetEntryId]);
+            recordPalletMergeAlias(
+                $pdo,
+                $inventoryType,
+                $sourcePalletId,
+                $targetPalletId,
+                $id,
+                $targetEntryId
+            );
             $delRow->execute([$id]);
 
             try {

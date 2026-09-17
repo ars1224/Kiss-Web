@@ -384,7 +384,8 @@ function createShortOrderLine(PDO $pdo, int $orderId, array $item, float $shortQ
             location,
             comment,
             picked_ctn_no,
-            picked_done
+            picked_done,
+            short_recreated
         ) VALUES (
             :order_id,
             :sku_code,
@@ -401,7 +402,8 @@ function createShortOrderLine(PDO $pdo, int $orderId, array $item, float $shortQ
             'NO STOCK',
             'Short - remaining qty',
             '',
-            '0'
+            '0',
+            2
         )
     ");
 
